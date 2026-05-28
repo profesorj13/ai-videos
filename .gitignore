@@ -1,0 +1,124 @@
+# =============================================================================
+# ai-video — .gitignore
+# -----------------------------------------------------------------------------
+# Filosofía: al repo solo sube el "saber" del equipo (skills, CLAUDE.md, docs,
+# guiones, product-rules, refs canónicas chicas). Todo binario regenerable
+# (mp4, mp3, png pesadas, pdf) queda local en la máquina de cada uno.
+#
+# Si necesitás cambiar una regla, leé primero `CLAUDE.md` → "Regla #7 — Repo Git".
+# =============================================================================
+
+# ---- Sistema operativo / IDE ------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# ---- Lenguajes / entornos ---------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+node_modules/
+.npm/
+.yarn/
+dist/
+build/
+
+# ---- Secretos / entorno -----------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+service-account*.json
+
+# ---- Logs / temporales ------------------------------------------------------
+*.log
+logs/
+tmp/
+.cache/
+
+# ---- Backups / archivos comprimidos sueltos ---------------------------------
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# =============================================================================
+# Binarios pesados regenerables — NUNCA al repo
+# Cada miembro del equipo los genera localmente corriendo las skills.
+# =============================================================================
+
+# Video
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+
+# Audio
+*.mp3
+*.wav
+*.opus
+*.m4a
+*.flac
+*.ogg
+
+# Documentos pesados regenerables
+*.pdf
+
+# =============================================================================
+# Pilotos legacy — quedan locales como referencia personal de quien los corrió.
+# No se borran ni se mueven, simplemente no se publican.
+# El equipo nuevo arranca limpio sin estos artefactos.
+# =============================================================================
+ebt/
+beato/
+docs/
+
+# =============================================================================
+# Artefactos del workflow productivo (`productos/<slug>/`)
+# Cada uno genera estos al correr las skills. NO se sincronizan.
+# =============================================================================
+productos/*/workspace/
+productos/*/imagenes-aprobadas/
+productos/*/imagenes-a-validar/
+productos/*/audio/
+productos/*/videos/
+productos/*/final/
+
+# =============================================================================
+# EXCEPCIONES — re-incluir lo que SÍ debe viajar al repo dentro de `productos/`
+# Regla del equipo: refs visuales del producto < 500 KB se trackean.
+# Si una ref pesa más, NO la commitees: pediles a tu compañero el link al CDN.
+# =============================================================================
+
+# Texto del producto (storyboard, reglas, notas) — siempre al repo
+!productos/*/*.md
+!productos/*/**/*.md
+
+# Referencias canónicas del producto — se trackean si son chicas
+!productos/*/referencias/
+!productos/*/referencias/**/*.png
+!productos/*/referencias/**/*.jpg
+!productos/*/referencias/**/*.jpeg
+!productos/*/referencias/**/*.webp
+!productos/*/referencias/**/*.svg
+!productos/*/referencias/**/*.gif
+
+# `.gitkeep` para mantener la estructura base versionada
+!**/.gitkeep
+
+# Template de producto — viaja entero al repo (estructura de referencia).
+# Va al final para que su negación gane sobre las reglas anteriores.
+!productos/_template/
+!productos/_template/**
