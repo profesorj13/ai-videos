@@ -194,6 +194,7 @@ salen bien al primer intento.
 1. `productos/<slug>/Product-rules-<slug>.md` — contrato (los 6 bloques).
 2. `productos/<slug>/referencias/ref-images/*` — refs visuales adicionales.
 3. **El guión pegado por el usuario**.
+4. **Si el guión incluye avatares humanos**: `productos/_shared/avatars/<avatar>/Avatar-rules-<avatar>.md` — contrato canónico del avatar (descripción física + ropa + sonrisa + mirada, leída desde la foto base, NO desde memoria). Para Mercedes: [`productos/_shared/avatars/mercedes/Avatar-rules-mercedes.md`](../../../productos/_shared/avatars/mercedes/Avatar-rules-mercedes.md). Si el avatar no tiene Avatar Rules todavía, **abrir su foto base, describirla bloque por bloque, y crear el archivo** antes de redactar el storyboard. La descripción del avatar incrustada en cada prompt de escena debe ser **copia exacta del §5 del Avatar Rules** — no improvisar variaciones por escena.
 
 ### Estética visual (v4 — "documental real")
 
@@ -551,6 +552,7 @@ qué filas/notas se incorporan a la skill. Aplicar tras OK.
 10. **Tirar prompts a ciegas sin describir las refs objetivamente.** Antes del primer prompt de cada escena, describir las refs componente por componente (alimenta el Product Rules §2).
 11. **Re-subir refs cada vez al CDN.** Subir UNA SOLA VEZ y reusar UUIDs.
 12. **Describir el producto desde memoria del modelo cuando hay refs.** Las refs son el ground truth.
+12-bis. **Describir el avatar humano desde memoria / desde el nombre.** Si la escena tiene un avatar (Mercedes u otro), abrir su `mercedes-base.webp` (o equivalente) y leer la ref antes de redactar el bloque de avatar en el prompt. Describir avatares "de cabeza" desde el nombre lleva a errores como pelo del color equivocado, edad imprecisa, ropa que no es. Para el avatar Mercedes hay un contrato canónico en [`productos/_shared/avatars/mercedes/Avatar-rules-mercedes.md`](../../../productos/_shared/avatars/mercedes/Avatar-rules-mercedes.md) — incrustar su §5 (Prompt base EN) en todas las escenas con Mercedes. Para avatares nuevos, copiar ese archivo como plantilla bajo `productos/_shared/avatars/<slug>/`.
 13. **Subestimar la edición manual en Photoshop del usuario** como ref canónica válida.
 14. **Mostrar al usuario `Read` del archivo local.** El usuario NO ve la imagen así (ni en Mac ni en Windows). SIEMPRE pegar URL CDN.
 15. **Pre-aprobar prompts en texto** cuando ya tenemos el storyboard aprobado. Para iteración, generate-and-show (mostrar resultado + prompt en el mismo turno).
