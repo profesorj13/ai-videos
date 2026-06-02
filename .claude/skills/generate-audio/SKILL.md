@@ -71,10 +71,33 @@ aprueba completo.
 
 ### Voz canónica fija
 
-- **AlizIA Malena Clone v1** `dlkqIuF0zNKHDiz5ajTG` (IVC clonada de Mercedes).
+- **AlizIA Malena Clone v1** `dlkqIuF0zNKHDiz5ajTG` (IVC clonada de Mercedes, ~2 min de audio fuente).
 - `model_id="eleven_multilingual_v2"`, `language_code="es"`.
-- `stability=0.90`, `similarity_boost=0.75`, `style=0.15`, `use_speaker_boost=True`.
+- **Settings canónicos (v2 — consolidados con safety-loop-scissors-v3, 2026-05)**:
+  `stability=0.70`, `similarity_boost=0.75`, `style=0.50`, `use_speaker_boost=True`.
 - **Estos settings NO cambian entre escenas del mismo video.**
+- *Historia*: el piloto Mercedes-v1 usaba `stab=0.90 / style=0.15`. Esos valores sonaban
+  monótonos y sin cierre de frase. Bajar a `0.70 / 0.50` dio inflexiones naturales con
+  cierre de frase. Probado en safety-loop-scissors-v3. **NO bajar `stability` < 0.65** —
+  la voz empieza a meter letras inventadas. **NO subir `style` > 0.55** — el modelo
+  inventa fonemas al inicio del audio. La banda segura es `stab∈[0.65, 0.75]`,
+  `style∈[0.40, 0.55]`.
+
+### Limitación inherente de la voz IVC (importante)
+
+La voz se clonó con ~2 min de audio fuente (IVC, no PVC). Esto tiene dos consecuencias
+permanentes hasta que se re-clone con más material:
+
+1. **Cierres internos entre oraciones de una misma frase quedan "abiertos"**.
+   Una frase con 3 oraciones encadenadas tiene las 2 primeras sin bajada de tono
+   final. NO se resuelve con split por oración (duplica costo y suena igual).
+2. **Cierre final de frase**: la última oración queda "colgando" sin tono descendente.
+   Se compensa con el truco **"Listo." filler** (ver §Paso 2 — Pipeline canónico).
+
+**Plan de mejora a mediano plazo**: regrabar a Mercedes con 5-10 min de audio
+variado (cierres firmes, entonación pedagógica explícita, varias emociones) y
+crear `AlizIA Malena Clone v2` en ElevenLabs. Hasta entonces, el truco "Listo."
+es la solución oficial.
 
 ### Reglas de normalización de texto (aplicar antes de meter al voice-board)
 
@@ -97,6 +120,14 @@ aprueba completo.
 
 4. **Acento forzado** en palabras técnicas que el modelo pronuncia mal: `buclé` (no `bucle`), etc. Probar antes de reescribir; ElevenLabs es no-determinista (2-3 generaciones del mismo texto pueden variar).
 
+5. **`. Listo.` al final de la frase como cierre de entonación**. La voz IVC actual
+   (ver §"Limitación") no cierra frases con bajada de tono naturalmente. El truco:
+   - Agregar `. Listo.` al final del texto que se pasa a ElevenLabs
+   - El modelo cierra la frase real con tono descendente porque "Listo." pasa a ser
+     la última palabra (la caída de entonación cae sobre "Listo.")
+   - **El "Listo." se CORTA del audio en post** (ver §Paso 2 — Pipeline canónico)
+   - Aplica a **TODAS** las frases del voice-board sin excepción
+
 ### Estructura del `voice-board.md`
 
 ```markdown
@@ -104,8 +135,8 @@ aprueba completo.
 
 > Producto: `Product-rules-<slug>.md` (vigente al <fecha>)
 > Voz: AlizIA Malena Clone v1 `dlkqIuF0zNKHDiz5ajTG`
-> Settings: `stability=0.90, sim=0.75, style=0.15, speaker_boost=true`, `eleven_multilingual_v2`, `es`
-> Post: padding final 0.5 s (`apad=pad_dur=0.5`)
+> Settings (canónicos v2): `stability=0.70, sim=0.75, style=0.50, speaker_boost=true`, `eleven_multilingual_v2`, `es`
+> Post: agregar `. Listo.` al texto, cortar el filler en post (`atrim total-0.7s`), padding final 0.5 s (`apad`)
 > Guión pegado: YYYY-MM-DD por <usuario>
 
 ## Fuente — guión
@@ -136,52 +167,96 @@ aprueba completo.
 
 ---
 
-## Paso 2 — Generar audios + tracking inmediato
+## Paso 2 — Generar audios — pipeline canónico + tracking inmediato
 
-Por cada bloque del voice-board, llamar a ElevenLabs (Python). Aplicar `apad`
-post-render. **Tracking inmediato** al Sheet — Regla #1 de `CLAUDE.md`.
+**Para cada bloque del voice-board**, el pipeline es **4 pasos atómicos**:
+
+1. **Texto enviado a ElevenLabs** = `<frase normalizada del voice-board> + " Listo."`
+2. **Generar** con voz + settings canónicos → guardar en `audio/workspace/<slug>-v<N>-raw.mp3`
+3. **Cortar el "Listo."** con `atrim=0:{total-0.7}, apad=pad_dur=0.5` → guardar en `audio/<slug>-v<N>.mp3`
+4. **Trackear** inmediato al Sheet (regla #1 de `CLAUDE.md`) — antes de mostrar al usuario
+
+### Script canónico reutilizable: [`scripts/audio_pipeline.py`](scripts/audio_pipeline.py)
+
+El helper está versionado al lado de la skill. Lo invocás con el voice-board ya
+aprobado:
+
+```bash
+python3 .claude/skills/generate-audio/scripts/audio_pipeline.py \
+  --slug "<producto-slug>" \
+  --video-id <id_del_sheet> \
+  --voice-board "productos/<slug>/voice-board.md"
+```
+
+El script:
+- Parsea el voice-board (extrae cada bloque `## vo-<escena>` con su frase normalizada).
+- Por cada track:
+  1. Agrega `. Listo.` al final de la frase (si no termina ya con punto, le agrega `. Listo.`).
+  2. Llama a ElevenLabs con los settings canónicos.
+  3. Corta el filler con `atrim=0:total-0.7s` y aplica `apad=0.5s`.
+  4. Trackea al Sheet `generations` (`tipo=audio`).
+- Es **idempotente** por versión: si `audio/<slug>-v1.mp3` existe, salta. Para forzar
+  regenerar, usar `--regen <slug>` (que toma `v<N+1>`).
+
+### Si llamás manual (sin el script — para debug o retry puntual)
 
 ```python
-import os
+import os, subprocess
 from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs(api_key=os.environ["ELEVENLABS_API_KEY"])
-texto = "..."  # frase normalizada del voice-board
-out_raw = "productos/<slug>/audio/workspace/vo-<escena>-v1-raw.mp3"
+SETTINGS = {"stability": 0.70, "similarity_boost": 0.75, "style": 0.50, "use_speaker_boost": True}
 
+# 1. Texto + filler
+text = "<frase normalizada>. Listo."
+
+# 2. Generar
+raw = "productos/<slug>/audio/workspace/vo-<escena>-v1-raw.mp3"
 audio = client.text_to_speech.convert(
     voice_id="dlkqIuF0zNKHDiz5ajTG",
-    text=texto,
+    text=text,
     model_id="eleven_multilingual_v2",
     language_code="es",
-    voice_settings={
-        "stability": 0.90,
-        "similarity_boost": 0.75,
-        "style": 0.15,
-        "use_speaker_boost": True,
-    },
+    voice_settings=SETTINGS,
     output_format="mp3_44100_128",
 )
-with open(out_raw, "wb") as f:
+with open(raw, "wb") as f:
     for chunk in audio:
-        if chunk:
-            f.write(chunk)
+        if chunk: f.write(chunk)
+
+# 3. Cortar el "Listo." + apad (CRÍTICO: usar atrim+apad en filter, NUNCA -t + apad)
+total = float(subprocess.run(
+    ["ffprobe","-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",raw],
+    capture_output=True, text=True
+).stdout.strip())
+cut_at = total - 0.7  # fijo: "Listo." dura ~0.7s en contexto
+out = "productos/<slug>/audio/vo-<escena>-v1.mp3"
+subprocess.run([
+    "ffmpeg","-y","-i",raw,
+    "-af", f"atrim=0:{cut_at},apad=pad_dur=0.5",
+    "-c:a","libmp3lame","-b:a","192k",
+    out
+], capture_output=True)
 ```
 
-Padding final (mismo path final para todas las escenas):
+### Reglas duras del corte (lección aprendida)
 
-```bash
-ffmpeg -y -i "productos/<slug>/audio/workspace/vo-<escena>-v1-raw.mp3" \
-  -af "apad=pad_dur=0.5" -c:a libmp3lame -b:a 192k \
-  "productos/<slug>/audio/vo-<escena>-v1.mp3"
-```
+- **Fallback fijo: `total - 0.7s`**. Funciona para la mayoría (~6 de 7 escenas).
+- **Si todavía queda "Listo." audible**: usar `total - 0.8s` (más agresivo). Caso típico:
+  frases largas donde el modelo dice "Listo." más lento.
+- **Si el modelo "tropieza" en el medio** (artifact tipo "se traba y dice dos veces"):
+  **regenerar** (ElevenLabs es no-determinista, otra seed lo arregla).
+- **NUNCA usar `silencedetect`** para encontrar el corte. Detecta silencios INTERNOS
+  de la frase (entre oraciones) y corta ahí, dejando el "Listo." después. Probado y falla.
+- **NUNCA usar `-t {cut} -af apad`** en ffmpeg — el `-t` trunca el padding del filter
+  graph. El padding queda en 0. Usar siempre `atrim=0:{cut},apad=pad_dur=0.5` en `-af`.
 
-Tracking (después de cada job, antes de mostrar al usuario):
+### Tracking (después de cada job, antes de mostrar al usuario)
 
 ```bash
 gws sheets spreadsheets values append \
   --params '{"spreadsheetId":"1AZ2Hl3aUCFJDodKYp33DP7cA7KMgIWYrZPDSdWZ9OBE","range":"generations!A:K","valueInputOption":"USER_ENTERED"}' \
-  --json '{"values":[["<id>","<video_id>","vo-<escena>","audio","elevenlabs/eleven_multilingual_v2","<frase normalizada>","completed","local","","productos/<slug>/audio/vo-<escena>-v1.mp3","YYYY-MM-DD"]]}'
+  --json '{"values":[["<id>","<video_id>","vo-<escena>","audio","elevenlabs/eleven_multilingual_v2","<frase>. Listo. [stab=0.70 sim=0.75 style=0.50 apad=0.5s cut=total-0.7s]","completed","local","","productos/<slug>/audio/vo-<escena>-v1.mp3","YYYY-MM-DD"]]}'
 ```
 
 **Naming**: nunca pisar archivos. `vo-<escena>-v1.mp3`, `vo-<escena>-v2-pronunciacion-bucle.mp3`, etc. (ver `CLAUDE.md` Regla #3).
@@ -212,6 +287,37 @@ Por cada audio generado:
 - Tirar `v<N+1>` con sufijo descriptivo del problema (`-pronunciacion-bucle`, `-tono-frio`).
 - Trackear el descarte (`status=discarded`) con motivo en el campo `prompt` o `asset_local` apuntando a `audio/discarded/`.
 - Anotar en `## Aprendizajes` del voice-board.
+
+### Al cierre del QA — mover versiones descartadas a `audio-preview/descartados/`
+
+Mientras iteramos, las versiones descartadas se acumulan en `audio-preview/` y
+confunden al equipo cuando entra a aprobar (¿cuál es la versión final?).
+
+**Antes de avisar al equipo que pueden revisar**, mover las versiones descartadas
+a una subcarpeta `descartados/` dentro de `audio-preview/`. En la raíz de
+`audio-preview/` queda solo **un archivo por escena** (el que está aprobado).
+
+```bash
+PREVIEW_ID="<id_de_audio-preview>"
+DISCARDED_ID=$(gws drive files create --params '{"supportsAllDrives":true}' \
+  --json "$(python3 -c 'import json; print(json.dumps({"name":"descartados","mimeType":"application/vnd.google-apps.folder","parents":["'$PREVIEW_ID'"]}))')" \
+  | sed '/^Using keyring backend/d' | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+# Listar y mover. Las APROBADAS las definís vos por nombre (ej. "vo-e1-v10.mp3"):
+APROBADAS="vo-e1-v10.mp3 vo-e2i-v10.mp3 vo-e2ii-v12.mp3 ..."
+
+gws drive files list --params "$(python3 -c "import json,sys; print(json.dumps({'q':f\"'$PREVIEW_ID' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\",'fields':'files(id,name)','pageSize':100}))")" \
+  | sed '/^Using keyring backend/d' \
+  | python3 -c "import json,sys; aprob=set(sys.argv[1].split()); d=json.load(sys.stdin); [print(f['id'], f['name']) for f in d['files'] if f['name'] not in aprob]" "$APROBADAS" \
+  | while read FILE_ID NAME; do
+    gws drive files update --params "$(python3 -c "import json,sys; print(json.dumps({'fileId':sys.argv[1],'addParents':sys.argv[2],'removeParents':sys.argv[3],'supportsAllDrives':True}))" "$FILE_ID" "$DISCARDED_ID" "$PREVIEW_ID")" --json '{}'
+    echo "  moved: $NAME"
+done
+```
+
+> El equipo abre `audio-preview/` y solo ve N archivos (uno por escena) + la
+> carpeta `descartados/` que pueden inspeccionar si tienen curiosidad sobre la
+> iteración. No se borra nada — la trazabilidad queda intacta.
 
 ---
 
@@ -271,6 +377,12 @@ Cierre del Paso 5: proponer al usuario qué filas/notas se agregan a esta skill 
 5. **Cambiar settings entre escenas del mismo video.** La voz tiene que sonar idéntica de escena a escena.
 6. **Pisar archivos en regeneración.** `v<N+1>` siempre.
 7. **Saltar el tracking de descartes.** Cada regen trackea la descartada con motivo.
+8. **Olvidar el `. Listo.` filler al final del texto.** Sin filler, la voz IVC no cierra frases — la última oración queda "abierta" / colgando. Aplica a TODAS las frases.
+9. **Usar `silencedetect` para encontrar el punto de corte del "Listo.".** Detecta silencios INTERNOS de la frase (entre oraciones) y corta ahí, dejando el "Listo." en el output final. **Usar fallback fijo `total - 0.7s` (o 0.8s si la voz dice "Listo" lento).**
+10. **Usar `-t {cut} -af apad` en ffmpeg.** El `-t` trunca el padding del filter. Usar siempre `atrim=0:{cut},apad=pad_dur=0.5` dentro de `-af`.
+11. **Bajar `stability` < 0.65 o subir `style` > 0.55.** Fuera de la banda `stab∈[0.65,0.75]` × `style∈[0.40,0.55]`, la voz IVC mete letras inventadas o fonemas erróneos.
+12. **Split por oración + concatenar para "arreglar" cierres internos.** No funciona — duplica costo y suena igual. Los cierres internos son limitación de la voz IVC. Aceptar.
+13. **Asumir determinismo en ElevenLabs.** El mismo texto + settings da audios distintos. Si una generación tiene un artifact (trabón, palabra repetida), **regenerar** con misma seed.
 
 ---
 
