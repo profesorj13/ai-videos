@@ -3,10 +3,9 @@
 audio_pipeline.py — pipeline canónico de generación de audios para videos AlizIA.
 
 Pipeline (por cada track del voice-board):
-1. Texto enviado a ElevenLabs = <frase normalizada> + " Listo."
-2. Generar con voz canónica AlizIA Malena Clone v1 + settings canónicos
-3. Cortar "Listo." con atrim=0:total-0.7s + apad 0.5s
-4. Trackear inmediato al Sheet generations (tipo=audio)
+1. Generar con voz canónica AlizIA Malena Clone v1 + settings canónicos
+2. Aplicar apad final 0.5s (sin cortes — el filler "Listo." se eliminó en v2 de la voz)
+3. Trackear inmediato al Sheet generations (tipo=audio)
 
 Idempotente: salta si el output ya existe. Para forzar regen, usar --regen <slug>.
 
@@ -17,10 +16,9 @@ Uso:
         --voice-board "productos/<slug>/voice-board.md"
 
 Convenciones:
-- Voz: AlizIA Malena Clone v1 dlkqIuF0zNKHDiz5ajTG (IVC, ~2 min de audio fuente)
+- Voz: AlizIA Malena Clone v1 aKtTSeLwi8u4QiEEtGZ0 (IVC re-clonada 2026-06-08 con 3 samples)
 - Settings canónicos v2 (2026-05): stab=0.70, sim=0.75, style=0.50, speaker_boost=true
-- Cut fallback fijo: total - 0.7s (NO usar silencedetect; ver SKILL.md anti-patterns)
-- Apad final: 0.5s
+- Apad final: 0.5s (single ffmpeg pass)
 - Sheet: 1AZ2Hl3aUCFJDodKYp33DP7cA7KMgIWYrZPDSdWZ9OBE, tab `generations` col A:K
 
 Requiere:
@@ -41,7 +39,7 @@ from pathlib import Path
 # ============================================================================
 # Constants
 # ============================================================================
-VOICE_ID = "dlkqIuF0zNKHDiz5ajTG"  # AlizIA Malena Clone v1
+VOICE_ID = "aKtTSeLwi8u4QiEEtGZ0"  # AlizIA Malena Clone v1 (re-clonada 2026-06-08, 3 samples)
 SETTINGS = {
     "stability": 0.70,
     "similarity_boost": 0.75,
@@ -51,8 +49,6 @@ SETTINGS = {
 MODEL_ID = "eleven_multilingual_v2"
 LANGUAGE = "es"
 OUTPUT_FORMAT = "mp3_44100_128"
-FILLER = " Listo."  # se agrega al final de cada frase
-CUT_OFFSET_DEFAULT = 0.7  # cortar last 0.7s (donde está el "Listo." en contexto)
 APAD = 0.5  # padding final del audio en segundos
 SHEET_ID = "1AZ2Hl3aUCFJDodKYp33DP7cA7KMgIWYrZPDSdWZ9OBE"
 
@@ -146,21 +142,16 @@ def get_duration(audio_path: Path) -> float:
     return float(result.stdout.strip())
 
 
-def cut_and_pad(raw_path: Path, out_path: Path, cut_offset: float = CUT_OFFSET_DEFAULT) -> dict:
+def apply_apad(raw_path: Path, out_path: Path) -> dict:
     """
-    Corta el filler "Listo." y aplica apad.
-
-    Usa atrim+apad en filter_complex (NUNCA -t {cut} -af apad — trunca el padding).
+    Aplica apad final al audio raw (sin cortes — la voz v2 cierra frases naturalmente).
     """
-    total = get_duration(raw_path)
-    cut_at = total - cut_offset
-    if cut_at <= 0:
-        raise ValueError(f"cut_at={cut_at} <= 0; audio demasiado corto ({total}s) para cortar {cut_offset}s")
+    raw_dur = get_duration(raw_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
             "ffmpeg", "-y", "-i", str(raw_path),
-            "-af", f"atrim=0:{cut_at},apad=pad_dur={APAD}",
+            "-af", f"apad=pad_dur={APAD}",
             "-c:a", "libmp3lame", "-b:a", "192k",
             str(out_path),
         ],
@@ -169,10 +160,8 @@ def cut_and_pad(raw_path: Path, out_path: Path, cut_offset: float = CUT_OFFSET_D
     )
     final = get_duration(out_path)
     return {
-        "raw_duration": total,
-        "cut_at": cut_at,
+        "raw_duration": raw_dur,
         "final_duration": final,
-        "cut_offset": cut_offset,
     }
 
 
@@ -194,15 +183,14 @@ append. Es portable y funciona en cualquier plataforma con gws accesible.
 def build_tracking_row(
     video_id: int,
     slug: str,
-    text_with_filler: str,
+    text: str,
     asset_local: str,
-    cut_info: dict,
 ) -> list[str]:
     """Construye una row para `generations` (sin id — se asigna al emitir el shell)."""
     prompt_summary = (
-        f"{text_with_filler} "
+        f"{text} "
         f"[stab={SETTINGS['stability']} sim={SETTINGS['similarity_boost']} "
-        f"style={SETTINGS['style']} apad={APAD}s cut=total-{cut_info['cut_offset']}s]"
+        f"style={SETTINGS['style']} apad={APAD}s]"
     )
     return [
         "<id>",  # placeholder — se reemplaza al emitir el shell
@@ -292,10 +280,9 @@ def process_track(
     slug: str,
     video_id: int,
     version: int = 1,
-    cut_offset: float = CUT_OFFSET_DEFAULT,
     force: bool = False,
 ) -> dict:
-    """Procesa un track del voice-board: generar + cortar. NO trackea (eso va al shell)."""
+    """Procesa un track del voice-board: generar + apad. NO trackea (eso va al shell)."""
     workspace = Path(f"productos/{slug}/audio/workspace")
     final_dir = Path(f"productos/{slug}/audio")
     raw_path = workspace / f"{track['slug']}-v{version}-raw.mp3"
@@ -305,19 +292,15 @@ def process_track(
         print(f"  {track['slug']} v{version}: ya existe, skip (usar --regen para forzar)")
         return {"skipped": True, "path": str(out_path)}
 
-    # Texto + filler
-    text_with_filler = track["text"].rstrip(".") + "." + FILLER
-
-    # Generar
+    # Generar (texto crudo del voice-board, sin filler)
     print(f"  {track['slug']} v{version}: generando...")
-    generate_audio(text_with_filler, raw_path)
+    generate_audio(track["text"], raw_path)
 
-    # Cortar + apad
-    info = cut_and_pad(raw_path, out_path, cut_offset=cut_offset)
+    # Apad final
+    info = apply_apad(raw_path, out_path)
     print(
         f"    raw={info['raw_duration']:.2f}s, "
-        f"cut@{info['cut_at']:.2f}s (-{cut_offset}s), "
-        f"final={info['final_duration']:.2f}s"
+        f"final={info['final_duration']:.2f}s (+{APAD}s apad)"
     )
 
     return {
@@ -326,8 +309,7 @@ def process_track(
         "version": version,
         "path": str(out_path),
         "duration": info['final_duration'],
-        "text_with_filler": text_with_filler,
-        "cut_info": info,
+        "text": track["text"],
     }
 
 
@@ -336,9 +318,6 @@ def main():
     parser.add_argument("--slug", required=True, help="producto slug (ej: safety-loop-scissors)")
     parser.add_argument("--video-id", required=True, type=int, help="id del video en el Sheet videos!A")
     parser.add_argument("--voice-board", required=True, help="path al voice-board.md")
-    parser.add_argument("--cut-offset", type=float, default=CUT_OFFSET_DEFAULT,
-                        help=f"segundos a cortar desde el final (default: {CUT_OFFSET_DEFAULT}). "
-                             "Si el Listo queda audible, subir a 0.8.")
     parser.add_argument("--version", type=int, default=1, help="versión de salida (default: 1)")
     parser.add_argument("--regen", action="append", default=[],
                         help="slugs a regenerar aunque existan (puede repetirse)")
@@ -365,7 +344,6 @@ def main():
             slug=args.slug,
             video_id=args.video_id,
             version=args.version,
-            cut_offset=args.cut_offset,
             force=force,
         )
         results.append(result)
@@ -373,9 +351,8 @@ def main():
             row = build_tracking_row(
                 video_id=args.video_id,
                 slug=track['slug'],
-                text_with_filler=result['text_with_filler'],
+                text=result['text'],
                 asset_local=result['path'],
-                cut_info=result['cut_info'],
             )
             tracking_rows.append(row)
 
