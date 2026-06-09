@@ -135,6 +135,7 @@ del modelo, anti-patterns visuales>
 <cómo se sostiene / usa el producto físicamente — explícito para el modelo>
 - grip humano: dedos sobre <parte X>, pulgar <descripción>
 - escala respecto a una mano adulta: ...
+- **REQUISITO** (anti-pattern #16): si el producto tiene un grip o pose de uso específica (tijera, lápiz adaptado, mouse de botones, juguete adaptado, etc.), **PEDIR al usuario una foto real del grip en uso ANTES de redactar este bloque y los prompts**. Guardar en `referencias/ref-images/ref-real-grip-*.jpg` y linkearla acá. Sin foto real, el modelo dibuja el grip mal en TODAS las escenas → 10+ iteraciones quemadas.
 
 ## 5. Prompt base — descripción exhaustiva del producto (EN)
 <bloque en inglés copy-paste, listo para incrustar en cualquier prompt de
@@ -511,6 +512,33 @@ Get-ChildItem "$LocalDir/*.png" | ForEach-Object {
 > feedback, lo aplicamos como otra ronda (Paso 3). Si todo queda firme,
 > cerramos con el Paso 5 (aprendizajes a la skill / Product Rules)."
 
+### Cuando vuelve feedback del equipo y hay que reemplazar versiones (iteración N)
+
+Cuando se regeneran escenas tras feedback y hay que subir las nuevas a Drive
+manteniendo la trazabilidad de la iteración anterior:
+
+1. **Crear subcarpeta `iteracion-<N>/`** dentro de `imagenes-a-validar/` (ej. `iteracion-1/` para la primera ronda, `iteracion-2/` para la segunda, etc.).
+2. **Mover ahí las versiones que el equipo ya comentó** (los archivos actuales en la raíz de `imagenes-a-validar/`).
+3. **Subir las nuevas en la raíz** con el mismo nombre limpio (`E1.png`, NO `E1-v2.png`) — así el equipo abre la carpeta y solo ve la última versión.
+
+```bash
+ITER_N_ID=$(gws_find_or_create_folder "iteracion-1" "$VAL_FOLDER_ID")
+
+# Mover viejas a iter-N
+gws drive files list --params "..." | python3 -c "..." | while read FILE_ID NAME; do
+  gws drive files update --params "$(python3 -c '...addParents...removeParents...')" --json '{}'
+done
+
+# Subir nuevas
+for img in productos/$SLUG/imagenes-a-validar/*.png; do
+  gws drive +upload "$img" --parent "$VAL_FOLDER_ID"
+done
+```
+
+> Trazabilidad: cada iteración queda en su subcarpeta con los archivos que el
+> equipo comentó. La raíz de `imagenes-a-validar/` siempre tiene "la última
+> versión aprobada localmente".
+
 ---
 
 ## Paso 5 — Aprendizajes GENERALIZABLES
@@ -556,6 +584,17 @@ qué filas/notas se incorporan a la skill. Aplicar tras OK.
 13. **Subestimar la edición manual en Photoshop del usuario** como ref canónica válida.
 14. **Mostrar al usuario `Read` del archivo local.** El usuario NO ve la imagen así (ni en Mac ni en Windows). SIEMPRE pegar URL CDN.
 15. **Pre-aprobar prompts en texto** cuando ya tenemos el storyboard aprobado. Para iteración, generate-and-show (mostrar resultado + prompt en el mismo turno).
+16. **Asumir el grip / la pose de uso del producto sin foto real**. Para todo producto que tenga un grip o pose específica de uso (tijera, lápiz adaptado, mouse de botones, etc.) **PEDIR al usuario una foto real del grip en uso ANTES de empezar** y guardarla como ref canónica en `referencias/ref-images/ref-real-grip-*.jpg` + linkear en el `Product-rules-<slug>.md §4 (Uso/grip)`. Sin foto real, vas a describir el grip "de cabeza" basado en suposiciones (ej. "lateral squeeze de dos mangos" para una tijera donde en realidad los dedos van adentro del bucle) → el modelo obedece tu descripción equivocada y todas las escenas con grip salen mal → 10+ iteraciones quemadas + frustración del equipo. Caso real en safety-loop-scissors-v3: 12 iteraciones de E3-iii por describir grip equivocado; recién al recibir foto real entendí "pulgar arriba del mango + 4 dedos adentro del bucle". Costo: ~50 créditos Higgsfield + ~1h de iteración.
+17. **Combinar 3+ refs `--image` cuando el modelo está deformando el producto**. Cuando nano_banana_2 pierde fidelidad del producto (le pone agujeros falsos, lo deforma, lo convierte en pinza), el approach correcto es **minimal: 1 sola ref (la mejor para morfología, normalmente `product-hero.png`) + prompt corto enfocado en SOLO el cambio puntual**. Combinar muchas refs (avatar + composición previa + hero + grip-real) confunde al modelo y deforma el producto. Caso real: tres regeneraciones de E2-ii con `[hero, e2ii-v1, real-grip-jpg]` produjeron un producto irreconocible; cuando pasé solo `[e2ii-v1-aprobada]` + prompt "same image but blades closed", funcionó al primer intento.
+18. **Sesgos conocidos de nano_banana_2 a anticipar en el prompt**:
+    - **Sesgo a producto grande**: siempre lo dibuja más grande de lo pedido. Para "miniatura" hay que ser EXPLÍCITO (`1/8 of face height`, `lipstick-sized`, `fits entirely in closed fist`) y a veces toma 2-3 iteraciones bajando agresivamente.
+    - **Alucinación de morfologías esperadas**: si pedís "4 dedos adentro del bucle" en una tijera, puede inventar un agujero en el mango superior porque "encaja" con su prior de tijera tradicional con dos aros. Anti-error: prompt explícito `the upper handle is SOLID, NO hole, NO finger ring`.
+    - **Confusión de orientación de uso**: cortar lateral vs apuñalar, agarrar vs mostrar. Anti-error: describir orientación explícita (`blades PARALLEL to desk plane, paper passes BETWEEN them`).
+19. **Subir nueva iteración a Drive sin preservar la anterior**. Cuando el equipo deja feedback y se regeneran escenas, la convención es:
+    - Crear subcarpeta `iteracion-N/` en la carpeta `imagenes-a-validar/` (o `audio-preview/`)
+    - Mover ahí las versiones que el equipo ya comentó
+    - Subir las nuevas en la raíz con el mismo nombre limpio (`E1.png`, no `E1-v2.png`)
+    - Así el equipo abre la carpeta y solo ve la última versión, pero la trazabilidad queda en `iteracion-N/`
 
 ---
 

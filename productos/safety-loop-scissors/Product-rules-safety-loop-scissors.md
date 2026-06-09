@@ -61,12 +61,23 @@ documentados en el piloto Mercedes-v1/v2):
 
 ## 4. Uso (grip / interacción)
 
+> **CORRECCIÓN MAYOR 2026-06-09**: el grip que veníamos modelando estaba MAL.
+> Después de varias rondas con feedback del equipo, el grip canónico real es:
+> **pulgar arriba del mango plástico superior + 4 dedos METIDOS DENTRO del bucle
+> de silicona** (el bucle envuelve los 4 dedos). Se aprieta empujando el pulgar
+> hacia abajo y tirando los 4 dedos hacia arriba.
+
 Cómo se sostiene y se usa el producto, explícito para el modelo:
 
-- **Grip canónico (lateral squeeze de los dos mangos rígidos)**: la mano agarra **LOS DOS MANGOS PLÁSTICOS RÍGIDOS** verdes en el tercio superior del producto (cerca del pivot, debajo de las cuchillas). Los **4 dedos** (índice, mayor, anular, meñique) se apoyan contra **UN mango** (uno de los dos lados); el **PULGAR** se apoya contra el **OTRO mango** (el lado opuesto). La mano cierra apretando los dos mangos uno contra el otro — squeeze lateral.
+- **Grip canónico (squeeze vertical)**:
+  - **EL PULGAR va APOYADO POR ARRIBA del mango plástico rígido superior** (justo debajo del pivot/cuchillas). El pulgar presiona hacia abajo, NO atraviesa nada.
+  - **LOS 4 DEDOS (índice, mayor, anular, meñique) van METIDOS DENTRO DEL BUCLE de silicona** — el bucle continuo envuelve a los 4 dedos como un aro grande que entra en el puño. Los dedos curvados quedan dentro del bucle.
+  - La mano queda en posición de "puño abierto" con el bucle alrededor de los 4 dedos y el pulgar separado por arriba apoyado en el mango rígido superior.
+- **Movimiento de corte**: el pulgar empuja el mango rígido superior hacia ABAJO, mientras los 4 dedos (dentro del bucle) tiran hacia ARRIBA. Esto comprime el mecanismo y las cuchillas se cierran.
+- **Ref canónica visual**: foto del producto rojo con grip humano correcto (ver §7 — guardar como `ref-real-grip-canonico.jpg`).
 - **El bucle de silicona NO se agarra**. Es un **resorte elástico** que conecta los extremos inferiores de los mangos por debajo: cuelga libre por debajo de la mano, devuelve la tijera a posición abierta cuando se suelta el squeeze. **El bucle queda visible POR DEBAJO de la mano** en la mayoría de los planos con grip.
 - **El hueco INTERIOR del bucle queda VACÍO**. Nada pasa por adentro del aro de silicona — ni pulgar, ni dedos, ni mano, ni muñeca, ni manga, ni papel. Se debe ver **aire visible** a través del hueco. Si en la imagen la silicona del bucle pasa POR ENCIMA / POR DELANTE de un dedo o de la palma → el dedo/mano está atravesando el aro → **ERROR**. El bucle queda **DEBAJO y POR FUERA de toda la mano**, como si estuviera colgando de los mangos al aire libre.
-- **Frase quirúrgica para el prompt (anti-error)**: `CRITICAL GRIP — the hand grips the TWO RIGID PLASTIC HANDLES near the top of the scissor (just below the blades, near the pivot): the four fingers (index, middle, ring, pinky) press against ONE handle, the THUMB presses against the OTHER handle on the opposite side, lateral pliers-like squeeze. The flexible silicone LOOP IS NOT GRIPPED — it hangs free BELOW the hand as an elastic return spring, visible dangling under the palm. NEVER grip the silicone loop itself, NEVER wrap fingers around the loop, NEVER thread fingers through the loop.`
+- **Frase quirúrgica para el prompt (anti-error — VERSIÓN CORRECTA 2026-06-09)**: `CRITICAL GRIP — the hand grips the scissor with this exact pose: the THUMB rests ON TOP of the upper rigid plastic handle (just below the pivot/blades, pressing down). The FOUR FINGERS (index, middle, ring, pinky) ARE INSIDE the silicone loop — the green silicone loop wraps AROUND the four fingers like a large ring entering the fist. The loop is held by the four fingers from inside it (fingers curled, loop around them). To close the blades, the thumb pushes the upper handle DOWN while the four fingers pull the loop UP. The grip is NOT lateral squeeze of two rigid handles — it is vertical squeeze: thumb on top handle pressing down, four fingers inside the loop pulling up.`
 - **Movimiento de corte**: squeeze lateral de los dos mangos (igual que apretar unos alicates chiquitos). Al soltar, el bucle de silicona elástico devuelve los mangos a posición abierta y las cuchillas se reabren.
 - **Orientación típica**: cuchillas hacia adelante (alejándose del cuerpo) o hacia abajo (top-down sobre la mesa). Bucle colgando hacia abajo / hacia el cuerpo.
 - **Visibilidad del bucle según ángulo de cámara**: la gota PUEDE quedar parcial o totalmente oculta detrás del dorso de la mano según el ángulo de cámara (ej. cámara del lado del dorso → el dorso tapa la gota). **No es regla que la gota tenga que verse siempre**. Lo que SÍ es regla: que la silueta del producto visible se lea como **UNA SOLA pieza continua**, no como dos aros separados.
@@ -136,6 +147,8 @@ Lime-green color ONLY.
 | hero | `product-hero.png` | *(pendiente — Paso 1.5)* | Ref canónica de todas las escenas con producto |
 | ref-catalog-6colors | `referencias/ref-images/ref-product-catalog-6colors.jpg` | *(pendiente)* | Vista catalog 6 colores — muestra morfología bucle clara |
 | ref-catalog-stack | `referencias/ref-images/ref-product-catalog-stack.jpg` | *(pendiente)* | Apilados — vista lateral de la silueta |
-| ref-real-grip-blades-open | `referencias/ref-images/ref-real-grip-hand-blades-open.jpg` | *(pendiente)* | Foto real verde — grip canónico (puño cerrado) |
-| ref-real-grip-loop-side | `referencias/ref-images/ref-real-grip-hand-loop-side.jpg` | *(pendiente)* | Foto real verde — grip lateral, dedos fuera del bucle |
+| ref-real-grip-blades-open | `referencias/ref-images/ref-real-grip-hand-blades-open.jpg` | *(pendiente)* | Foto real verde — vista de muñeca con producto (NO usar como ref del grip — confunde) |
+| ref-real-grip-loop-side | `referencias/ref-images/ref-real-grip-hand-loop-side.jpg` | *(pendiente)* | Foto real verde — vista lateral del producto en mano |
 | ref-real-action-cutting | `referencias/ref-images/ref-real-action-cutting-paper.png` | *(pendiente)* | Foto real cortando papel — referencia de acción |
+| **ref-real-grip-canonico** ⭐ | `referencias/ref-images/ref-real-grip-canonico-2026-06-09.png` | *(pendiente)* | **REF CANÓNICA DEL GRIP** (tijera roja, mano adulta, pulgar extendido a lo largo del mango plástico superior + 4 dedos adentro del bucle de silicona). **Usar SIEMPRE como ref del grip** en escenas con manos. |
+| **ref-real-grip-fist-cutting** ⭐ | `referencias/ref-images/ref-real-grip-fist-cutting-pose.jpg` | *(pendiente)* | **REF CANÓNICA POSE DE CORTE**: puño firme cerrado dorso a cámara, solo asoman las cuchillas arriba. Usar cuando la escena muestra al niño USANDO la tijera (cortando algo en posición natural). |
