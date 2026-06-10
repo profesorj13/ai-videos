@@ -12,7 +12,7 @@
 
 ## 1. Identidad
 
-Mercedes — psicopedagoga argentina, voz canónica AlizIA ([generate-audio](.claude/skills/generate-audio/SKILL.md): voice ID `dlkqIuF0zNKHDiz5ajTG`, AlizIA Malena Clone v1). Es el avatar narrador-presentador que aparece en los videos de productos de inclusión educativa.
+Mercedes — psicopedagoga argentina, voz canónica AlizIA ([generate-audio](.claude/skills/generate-audio/SKILL.md): voice ID `aKtTSeLwi8u4QiEEtGZ0`, AlizIA Malena Clone v1, re-clonada 2026-06-08 con 3 samples de WhatsApp). Es el avatar narrador-presentador que aparece en los videos de productos de inclusión educativa.
 
 ## 2. Apariencia física (descrita desde la ref, NO desde memoria)
 

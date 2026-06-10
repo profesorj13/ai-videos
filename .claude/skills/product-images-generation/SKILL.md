@@ -577,10 +577,10 @@ qué filas/notas se incorporan a la skill. Aplicar tras OK.
 El changelog del equipo (v3, v6) incluye decisiones de **audio** y **video**
 que NO aplican acá:
 
-- Voz canónica nueva **AlizIA Malena Clone v1** `dlkqIuF0zNKHDiz5ajTG`, settings
-  `stability=0.90, similarity_boost=0.75, style=0.15, use_speaker_boost=True`,
-  cierre de frase con punto, sin `<break>`, padding 0.5s con `apad` → futura
-  skill `generate-audio`. Anotado en `CLAUDE.md` §Regla #5.
+- Voz canónica **AlizIA Malena Clone v1** `aKtTSeLwi8u4QiEEtGZ0` (re-clonada 2026-06-08 con 3 samples), settings
+  `stability=0.70, similarity_boost=0.75, style=0.50, use_speaker_boost=True`,
+  cierre de frase con punto, sin `<break>`, sin filler `Listo.` (la voz nueva cierra
+  frases sola), padding 0.5s con `apad` → skill `generate-audio`.
 - Seseo rioplatense (`lápiz`→`lápis`, `precisión`→`presisión`, etc.) → futura `generate-audio`.
 - Seedance 2.0 no hace lipsync — decisión "narración-sobre-gesto" → futura `generate-video`.
 - Artefacto cap-slide en Seedance, declarar producto como `RIGID SOLID OBJECT` → futura `generate-video`.
