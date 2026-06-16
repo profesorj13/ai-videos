@@ -224,6 +224,30 @@ environment (shelves organized, desk clear) — NEVER cluttered or messy.
 - Gesto candid (mirando al objeto, NO a cámara).
 - Avatares humanos: **smile cálido y cerrado, NOT articulating words** (porque el video después no tiene lipsync; ver hallazgos en `CLAUDE.md`).
 
+### Brand-close / cierre — fondo `#2A205E` (regla dura)
+
+La **última escena** del video (rol `cierre_brand` en el storyboard) es el
+reveal del producto + brand AlizIA, que conecta con el outro compartido. Para
+que el corte video→outro no se note, el fondo del producto en esa escena
+**debe ser exactamente el mismo azul que el outro: `#2A205E`** (índigo oscuro
+saturado AlizIA).
+
+Bloque de prompt a incrustar en la escena de cierre (NO en el resto):
+
+```
+<prompt base del producto> floating centered on a solid deep indigo background
+(hex #2A205E, AlizIA brand color), studio softbox light gently kissing the
+product, premium catalog reveal aesthetic, no gradient, no texture, no shadows
+on background, 9:16 vertical.
+```
+
+QA tip: abrir la still aprobada y picar el fondo en cualquier zona limpia con
+un color picker — si no da `#2A205E ± 3 puntos` por canal, regenerar. La
+coherencia con el outro depende de esto.
+
+Esta regla **anula** la estética documental (de celular) solo para la escena
+de cierre — el resto del video sí sigue documental.
+
 ### Estructura de `storyboard.md`
 
 Un bloque por imagen. Embebé el **guión completo** al principio como sección
@@ -244,7 +268,7 @@ Un bloque por imagen. Embebé el **guión completo** al principio como sección
 
 ## E1 — <título de la escena>
 
-- **Rol**: `producto_puro` | `escena_con_avatar` | `escena_con_grip` | `cierre_brand`
+- **Rol**: `producto_puro` | `escena_con_avatar` | `escena_con_grip` | `cierre_brand` *(si rol=cierre_brand: fondo `#2A205E`, ver §"Brand-close" arriba)*
 - **Modelo**: `nano_banana_2` | `product-photoshoot/conceptual_product` | `product-photoshoot/closeup_product_with_person`
 - **Aspect / resolución**: `9:16` / `2k`
 - **Refs (--image)**:
@@ -339,6 +363,10 @@ Una vez aprobada la primera, paralelizar el resto en background.
 4. **Texto manuscrito en hojas**. Pedir palabras reales simples (`"Hola/mamá/casa/sol/mesa" + lined practice rows a-a-a`), explícito `"tidy and legible, NOT random scribbles"`, acotar tamaño (`"fits within two lined rows"`). Evita glifos-garabato falsos.
 5. **Refs como UUIDs CDN reusables**. Subir cada ref UNA SOLA VEZ y reusar el UUID en toda la skill (evita `AccessDenied` transitorio del uploader). Guardar UUIDs en una tabla al pie del Product Rules.
 6. **Edición manual del usuario en Photoshop** es una ref canónica válida. Si el usuario edita una still en Photoshop para fixear un problema, subir esa al CDN y reusarla como `--image` en regeneraciones.
+7. **Producto pequeño en frame con avatar → riesgo de drift** si no forzamos identidad. Cuando el avatar sostiene el producto en una toma mediana (producto < 15% del frame), Nano Banana puede "inventar" una variante (color, forma, material) — y aún cuando la still salga bien, Seedance puede romperla en Etapa 3 (ver lockdown `[PRODUCT-TOPOLOGY]` en `generate-video`). Mitigaciones en esta skill:
+   - **`--image product-hero.png` SIEMPRE** en estas escenas (no es opcional, aunque el storyboard parezca "sobre el avatar").
+   - **Anti-drift en el prompt**: `"The product visible in the subject's hand is the EXACT product shown in the reference image — same shape, same color, same topology, same scale, same material. Do not invent variations, do not substitute with a generic version of the product."`
+   - **QA dedicado** post-generación: ver Paso 3 §"Match anatomía del producto".
 
 ### Comunicación con el usuario — antes de tirar el job
 
@@ -374,8 +402,9 @@ exacto enviado al CLI, `status`, `job_id`, `url_resultado`, `asset_local`
 
 Por cada imagen generada:
 
-1. Mostrarle al usuario la **URL CDN** + path local + la nota de constraints del bloque del storyboard correspondiente. **Nunca asumir que el usuario ve el archivo local** (`Read` / `Invoke-Item` no le muestran nada — siempre URL CDN compartible).
-2. Pedir decisión: **OK** | **regenerar** | **descartar y reescribir bloque**.
+1. **Match anatomía del producto** (regla dura — pre-condición para mostrar al usuario). Abrir la still local y mirar **específicamente el producto**, no la composición global. Comparar contra `product-hero.png` y el §2 del Product Rules: forma (incluyendo topología — loops continuos, lazos, anillos), color, material, escala. Drift posible: avatar sostiene el producto en una toma mediana y el modelo lo reemplaza por una variante genérica. Si la anatomía no coincide → directo a `regenerar`, sin pasar por el usuario. Si dudás, regenerar igual (es más barato que un retake desde Etapa 3 video).
+2. Mostrarle al usuario la **URL CDN** + path local + la nota de constraints del bloque del storyboard correspondiente. **Nunca asumir que el usuario ve el archivo local** (`Read` / `Invoke-Item` no le muestran nada — siempre URL CDN compartible).
+3. Pedir decisión: **OK** | **regenerar** | **descartar y reescribir bloque**.
 
 ### Si OK
 

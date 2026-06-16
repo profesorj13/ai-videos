@@ -4,7 +4,7 @@ description: |
   Workflow gated para producir un video corto vertical (9:16, ~25-45s) sobre un
   producto de inclusión educativa de AlizIA, partiendo de un guión escrito.
   El flujo es estrictamente secuencial con QA gates humanos entre etapas:
-  guión → imágenes (gate) → audios (gate) → videos (gate) → montaje (gate final).
+  guión → imágenes (gate) → audios (gate) → videos (gate) → montaje (gate) → assembly post-final (intro+outro+música, gate final).
   Stack: Higgsfield (Nano Banana Pro, Product Photoshoot, Seedance 2.0) +
   ElevenLabs (Paola Blasi) + FFmpeg. Cada generación se registra en el Sheet
   `1AZ2Hl3aUCFJDodKYp33DP7cA7KMgIWYrZPDSdWZ9OBE`.
@@ -36,7 +36,7 @@ asset mal aprobado se propaga aguas abajo y multiplica el retrabajo.
 
 ---
 
-## Pipeline (4 etapas + gates)
+## Pipeline (5 etapas + gates)
 
 ```
                   ┌──────────────────────────────┐
@@ -52,8 +52,13 @@ asset mal aprobado se propaga aguas abajo y multiplica el retrabajo.
                   └──────┬───────────────────────┘
                          ▼                                ◀── GATE 3: usuario aprueba cada video
                   ┌──────────────────────────────┐
-                  │  Etapa 4 — Montaje final     │
+                  │  Etapa 4 — Montaje per-escena│
                   └──────┬───────────────────────┘
+                         ▼                                ◀── GATE 4: usuario aprueba el concat
+                  ┌──────────────────────────────────────────┐
+                  │  Etapa 5 — Assembly post-final           │
+                  │  (intro + outro + bed musical canónico)  │
+                  └──────┬───────────────────────────────────┘
                          ▼                                ◀── GATE FINAL: usuario aprueba el .mp4
                        final.mp4
 ```
@@ -328,7 +333,7 @@ Atención a:
 
 ---
 
-## Etapa 4 — Montaje final (FFmpeg)
+## Etapa 4 — Montaje per-escena (FFmpeg)
 
 Concatenar todos los videos en orden, con el map mixto correcto.
 
@@ -380,10 +385,123 @@ gws sheets spreadsheets values append \
   --json '{"values":[["99","2","final","render","ffmpeg/concat","8 clips + 7 vos + overlays, duración 40s","completed","local","","data/assets/products/safety-loop-scissors/generations/mercedes-v1/final/<slug>.mp4","2026-05-18"]]}'
 ```
 
+### GATE 4
+
+> "Acá el concat per-escena sin intro/outro ni música. Reproducilo y decime:
+> aprobado / iteración / cambio mayor. Si aprobás, pasamos a Etapa 5 (assembly
+> post-final)."
+
+---
+
+## Etapa 5 — Assembly post-final (intro + outro + bed musical canónico)
+
+Brandeo AlizIA — **todos** los videos del equipo cierran igual: intro y outro
+compartidos + bed musical canónico con ducking sobre la VO. Esta etapa es
+mecánica (no hay creatividad), aplica para cada producto sin tocar parámetros.
+
+### Assets canónicos compartidos
+
+Viven en `productos/_compartidos/` (binarios gitignored — bajada local una vez
+por máquina, instrucciones en [`productos/_compartidos/README.md`](../../../productos/_compartidos/README.md)).
+
+| Archivo | Duración | Specs |
+|---|---|---|
+| `intro.mp4` | 8.3s | 720×1280 · 23.976 fps · sin audio |
+| `outro.mp4` | 5.05s | 720×1280 · 23.976 fps · sin audio |
+| `bed-canonico-the-mountain.mp3` | 145s | 44.1 kHz · stereo · instrumental cálido |
+
+Antes de arrancar, **pre-check**:
+
+```bash
+ls productos/_compartidos/intro.mp4 productos/_compartidos/outro.mp4 \
+   productos/_compartidos/bed-canonico-the-mountain.mp3 || \
+  echo "FALTA bajar assets canónicos — ver productos/_compartidos/README.md"
+```
+
+### Paso 5.1 — Concat intro + final + outro
+
+Los finales suelen ir a 24 fps (Seedance) y los intro/outro a 23.976. Hay que
+normalizar a 24 fps **y** inyectar audio silencioso en intro/outro (con
+`anullsrc`) para que el concat tenga audio continuo.
+
+```bash
+SLUG=safety-loop-scissors           # ejemplo
+VN=v3                                # versión del final per-escena aprobado en GATE 4
+FINAL="productos/$SLUG/final/$SLUG-$VN-final.mp4"
+OUT="productos/$SLUG/final/$SLUG-$VN-final-with-intro-outro.mp4"
+
+ffmpeg -y \
+  -i productos/_compartidos/intro.mp4 \
+  -i "$FINAL" \
+  -i productos/_compartidos/outro.mp4 \
+  -f lavfi -t 8.3  -i "anullsrc=channel_layout=mono:sample_rate=44100" \
+  -f lavfi -t 5.05 -i "anullsrc=channel_layout=mono:sample_rate=44100" \
+  -filter_complex "[0:v]fps=24,setsar=1[v0];[1:v]fps=24,setsar=1[v1];[2:v]fps=24,setsar=1[v2];[v0][3:a][v1][1:a][v2][4:a]concat=n=3:v=1:a=1[outv][outa]" \
+  -map "[outv]" -map "[outa]" \
+  -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p \
+  -c:a aac -b:a 128k -movflags +faststart \
+  "$OUT"
+```
+
+### Paso 5.2 — Mix con bed musical (ducking automático)
+
+Música al 70% en intro/outro, ducked al 10% bajo la VO. Fades de 0.6s en
+transiciones, fade-out 1.0s al cierre. `T_VO_START = intro_dur (8.3s)`,
+`T_VO_END = T_VO_START + dur(final)`.
+
+```bash
+# Inputs
+WITH_IO="$OUT"                                                  # del paso 5.1
+TOTAL=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$WITH_IO")
+FINAL_DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$FINAL")
+T_VO_START=8.3
+T_VO_END=$(python3 -c "print(8.3 + $FINAL_DUR)")
+T_FADEOUT_START=$(python3 -c "print($TOTAL - 1.0)")
+FINAL_OUT="productos/$SLUG/final/$SLUG-$VN-final-with-music.mp4"
+
+ffmpeg -y \
+  -i "$WITH_IO" \
+  -i productos/_compartidos/bed-canonico-the-mountain.mp3 \
+  -filter_complex "[0:a]aformat=channel_layouts=stereo,aresample=44100[vo];[1:a]atrim=0:$TOTAL,aresample=44100,afade=t=in:st=0:d=1.0,afade=t=out:st=$T_FADEOUT_START:d=1.0,volume='if(lt(t,$(python3 -c "print($T_VO_START-0.3)")),0.7,if(lt(t,$(python3 -c "print($T_VO_START+0.3)")),0.7-(t-$(python3 -c "print($T_VO_START-0.3)"))/0.6*0.6,if(lt(t,$(python3 -c "print($T_VO_END-0.3)")),0.10,if(lt(t,$(python3 -c "print($T_VO_END+0.3)")),0.10+(t-$(python3 -c "print($T_VO_END-0.3)"))/0.6*0.6,0.7))))':eval=frame[music];[vo][music]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed]" \
+  -map 0:v -map "[mixed]" \
+  -c:v copy -c:a aac -b:a 192k -ar 44100 -movflags +faststart \
+  "$FINAL_OUT"
+```
+
+Tips:
+- `-c:v copy` — solo se re-encodea audio, render en ~2s.
+- Si el usuario reporta "la música tapa la VO" o "no se escucha la música" en
+  intro/outro, ajustar los dos floats (`0.10` y `0.7`) y regenerar como nueva
+  versión `-v<N+1>`. Nunca pisar.
+- Override de bed musical por video puntual: pasar otra ruta como `-i` en lugar
+  del canónico. No reemplaces el archivo canónico salvo acuerdo de equipo.
+
+### Paso 5.3 — Publicación en Drive `videos-a-validar/`
+
+```bash
+PARENT=$(gws drive files list --params "{\"q\":\"name='$SLUG' and trashed=false\",\"fields\":\"files(id,name)\"}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['files'][0]['id'])")
+VAL_FOLDER=$(gws drive files list --params "{\"q\":\"name='videos-a-validar' and '$PARENT' in parents\",\"fields\":\"files(id)\"}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['files'][0]['id'])")
+gws drive +upload "$FINAL_OUT" --parent "$VAL_FOLDER"
+```
+
+### Tracking del assembly
+
+Cada paso 5.1 y 5.2 se registra en `generations` con `tipo=assembly`:
+
+```bash
+gws sheets spreadsheets values append \
+  --params '{"spreadsheetId":"1AZ2Hl3aUCFJDodKYp33DP7cA7KMgIWYrZPDSdWZ9OBE","range":"generations!A:K","valueInputOption":"USER_ENTERED"}' \
+  --json '{"values":[
+    ["<next_id>","<video_id>","intro-outro","assembly","ffmpeg/concat","intro.mp4 + final + outro.mp4 + anullsrc","completed","local","<drive_url_si_subido>","productos/<slug>/final/<slug>-vN-final-with-intro-outro.mp4","<fecha>"],
+    ["<next_id+1>","<video_id>","music","assembly","ffmpeg/amix-ducking","bed-canonico-the-mountain.mp3, ducking 0.7/0.10/0.6s","completed","local","<drive_url>","productos/<slug>/final/<slug>-vN-final-with-music.mp4","<fecha>"]
+  ]}'
+```
+
 ### GATE FINAL
 
-> "Acá el .mp4 final. Reproducilo y decime: aprobado / iteración / cambio mayor.
-> Si aprobás, registro el render final en el Sheet, archivo descartes y cierro."
+> "Acá el .mp4 con intro/outro y música. Reproducilo y decime:
+> aprobado / iteración (ajustar niveles) / cambio mayor.
+> Si aprobás, registro los dos assemblies en el Sheet, archivo descartes y cierro."
 
 ---
 

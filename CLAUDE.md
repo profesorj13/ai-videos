@@ -129,20 +129,23 @@ gws sheets +append \
 El proceso global es:
 
 ```
-guión (validado fuera) → imágenes (gate) → audios (gate) → videos (gate) → montaje (gate final)
+guión (validado fuera) → imágenes (gate) → audios (gate) → videos (gate) → montaje per-escena (gate) → assembly post-final (intro+outro+música, gate final)
 ```
 
 Cada etapa vive en su propia skill. Cada **gate** requiere aprobación
 explícita del usuario sobre el lote antes de avanzar. Nunca generar audios
 sin imágenes aprobadas, nunca videos sin audios aprobados, nunca montar sin
-videos aprobados.
+videos aprobados, nunca ensamblar intro/outro/música sin el concat per-escena
+aprobado.
 
 Skills por etapa:
 
 - **Imágenes** → `product-images-generation` (activa).
 - **Audios** → `generate-audio` (futura).
 - **Videos** → `generate-video` (futura).
-- **Montaje** → todavía dentro de `ai-inclusion-videos` (legacy) hasta que se desmonte.
+- **Montaje per-escena + Assembly post-final** → `ai-inclusion-videos` (legacy)
+  hasta que se desmonte. La Etapa 5 (intro + outro + bed musical canónico) usa
+  los assets compartidos de [`productos/_compartidos/`](productos/_compartidos/README.md).
 
 La skill `ai-inclusion-videos` queda como **referencia histórica** del workflow
 completo end-to-end del piloto Mercedes-v1. Se va desmontando a medida que cada
@@ -195,6 +198,11 @@ hardcodear `/Users/...` ni `C:\Users\...`.
 productos/
 ├── _template/                              # plantilla — copiar para arrancar un producto nuevo
 │   └── (mismo layout que abajo, con `Product-rules-TEMPLATE.md` y README)
+├── _compartidos/                           # assets canónicos del equipo (intro/outro/bed musical)
+│   ├── README.md                           # IDs Drive + instrucciones de bajada
+│   ├── intro.mp4                           # 720x1280, 23.976 fps, 8.3s, sin audio (gitignored)
+│   ├── outro.mp4                           # 720x1280, 23.976 fps, 5.05s, sin audio (gitignored)
+│   └── bed-canonico-the-mountain.mp3       # bed musical estándar AlizIA (gitignored)
 └── <producto-slug>/
     ├── Product-rules-<producto-slug>.md    # contrato del producto (6 bloques, gate obligatorio)
     ├── product-hero.png                    # output `product-images-generation` (Paso 1.5)
@@ -297,7 +305,8 @@ acá. Se cargan solo cuando esa skill se activa:
 - Imágenes (Nano Banana Pro, Product Photoshoot, estética visual) → [`product-images-generation`](.claude/skills/product-images-generation/SKILL.md).
 - Audios (voz canónica, settings ElevenLabs, normalización de texto) → [`generate-audio`](.claude/skills/generate-audio/SKILL.md).
 - Videos (Seedance 2.0, decision tree de casos, lockdowns) → [`generate-video`](.claude/skills/generate-video/SKILL.md).
-- Montaje final (concat FFmpeg con map mixto, overlays con Pillow) → `ai-inclusion-videos` (legacy) hasta crear `montaje-final`.
+- Montaje per-escena (concat FFmpeg con map mixto, overlays con Pillow) → `ai-inclusion-videos` Etapa 4 (legacy) hasta crear `montaje-final`.
+- Assembly post-final (intro + outro + bed musical canónico con ducking) → `ai-inclusion-videos` Etapa 5. Assets compartidos en [`productos/_compartidos/`](productos/_compartidos/README.md).
 
 Notas operativas mínimas que sí valen acá:
 

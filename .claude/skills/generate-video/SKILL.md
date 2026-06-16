@@ -159,6 +159,7 @@ Plantilla:
 | `[IDENTITY]` | Drift de identidad facial entre escenas | `same person as in start-image, no facial restructuring, no age drift` |
 | `[PRODUCT-MULTIPLY]` | Aparece 2+ unidades del producto | `EXACTLY ONE unit of <product> on screen, do NOT duplicate or mirror` |
 | `[STATIC-BG]` | Fondo "vive" demasiado (otras personas se mueven raro) | `background stays static, no extra people moving, no objects appearing` |
+| `[PRODUCT-TOPOLOGY]` | Seedance rompe la topología del producto entre la still y el video (loops continuos se parten en handles separados, anillos cerrados se abren, formas conectadas se desconectan). Caso real: piloto Mercedes E4 — still tenía la tijera safety-loop con el loop verde continuo, Seedance generó dos handles separados unidos por una bisagra (tijera tradicional). Más probable cuando el producto es pequeño en frame y el avatar se mueve. | `PRESERVE PRODUCT TOPOLOGY EXACTLY — every closed loop, ring, or continuous connected shape in the start-image must remain closed and continuous. NO splitting of continuous parts into separate pieces. NO opening of closed rings or loops. The product structure stays topologically identical to the start-image throughout the entire shot.` |
 
 *(Nuevos lockdowns se agregan acá tras cada retry mapeado en Paso 5.)*
 
@@ -192,7 +193,7 @@ Tracking inmediato a `generations` con `tipo=video`.
 
 - **OK one-shot** → tirar el resto del lote en paralelo (background).
 - **Falla** → **Paso de causa raíz** (obligatorio antes de retry):
-  1. Identificar exactamente qué falló (artefacto cap-slide, identity-drift, mouth-open, product-multiply, fondo movido, etc.).
+  1. Identificar exactamente qué falló (artefacto cap-slide, identity-drift, mouth-open, product-multiply, fondo movido, **product-topology-drift** — el producto cambia su forma topológica entre start-image y video, ej. loop continuo que se parte en dos handles, etc.).
   2. Mapear a un lockdown existente (si lo hay) o **proponer uno nuevo** al usuario.
   3. Anotar la causa en `## Aprendizajes` del motion-board.
   4. Trackear el descarte (`status=discarded`) con motivo en `prompt` y `asset_local` apuntando a `videos/discarded/`.
