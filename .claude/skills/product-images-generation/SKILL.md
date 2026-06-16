@@ -362,6 +362,10 @@ Una vez aprobada la primera, paralelizar el resto en background.
 4. **Texto manuscrito en hojas**. Pedir palabras reales simples (`"Hola/mamá/casa/sol/mesa" + lined practice rows a-a-a`), explícito `"tidy and legible, NOT random scribbles"`, acotar tamaño (`"fits within two lined rows"`). Evita glifos-garabato falsos.
 5. **Refs como UUIDs CDN reusables**. Subir cada ref UNA SOLA VEZ y reusar el UUID en toda la skill (evita `AccessDenied` transitorio del uploader). Guardar UUIDs en una tabla al pie del Product Rules.
 6. **Edición manual del usuario en Photoshop** es una ref canónica válida. Si el usuario edita una still en Photoshop para fixear un problema, subir esa al CDN y reusarla como `--image` en regeneraciones.
+7. **Producto pequeño en frame con avatar → drift garantizado** si no forzamos identidad. Cuando el avatar sostiene el producto mientras habla (medium shot, cara grande, producto ocupando < 15% del frame), Nano Banana baja la atención al producto y "inventa" una variante (color, forma, material). En el piloto Mercedes salió tijera gris-con-grip-verde en lugar de la safety-loop cyan continua. Mitigaciones obligatorias:
+   - **`--image product-hero.png` SIEMPRE** en estas escenas (no es opcional, aunque el storyboard parezca "sobre el avatar").
+   - **Anti-drift en el prompt**: `"The product visible in the subject's hand is the EXACT product shown in the reference image — same continuous loop shape, same cyan color, same scale, same material. Do not invent variations, do not substitute with generic <producto-genérico>."`
+   - **QA dedicado** post-generación: ver Paso 3 §"Match anatomía del producto".
 
 ### Comunicación con el usuario — antes de tirar el job
 
@@ -397,8 +401,9 @@ exacto enviado al CLI, `status`, `job_id`, `url_resultado`, `asset_local`
 
 Por cada imagen generada:
 
-1. Mostrarle al usuario la **URL CDN** + path local + la nota de constraints del bloque del storyboard correspondiente. **Nunca asumir que el usuario ve el archivo local** (`Read` / `Invoke-Item` no le muestran nada — siempre URL CDN compartible).
-2. Pedir decisión: **OK** | **regenerar** | **descartar y reescribir bloque**.
+1. **Match anatomía del producto** (regla dura — pre-condición para mostrar al usuario). Abrir la still local y mirar **específicamente el producto**, no la composición global. Comparar contra `product-hero.png` y el §2 del Product Rules. Drift más común: avatar sostiene el producto durante una toma mediana y el modelo lo reemplaza por una variante genérica (ej. piloto Mercedes E4: tijeras grises-con-grip-verde en lugar de la safety-loop cyan continua). Si la anatomía no coincide → directo a `regenerar`, sin pasar por el usuario. Si dudás, regenerar igual (es más barato que un retake desde Etapa 3 video).
+2. Mostrarle al usuario la **URL CDN** + path local + la nota de constraints del bloque del storyboard correspondiente. **Nunca asumir que el usuario ve el archivo local** (`Read` / `Invoke-Item` no le muestran nada — siempre URL CDN compartible).
+3. Pedir decisión: **OK** | **regenerar** | **descartar y reescribir bloque**.
 
 ### Si OK
 
