@@ -12,9 +12,10 @@ description: |
   Depende de imágenes aprobadas + audios aprobados (no funciona si falta uno).
   Use cuando el usuario pida "generar videos del producto X", "armar los
   videos por escena", "motion-board", "image-to-video del producto X".
-  NO usar para montaje final (queda en `ai-inclusion-videos` legacy), videos
-  largos > 60s, ni para escenas que NECESITEN lipsync real (descartado por
-  proyecto — ver caso A del decision tree).
+  NO usar para montaje final (queda en `ai-inclusion-videos` legacy) ni para
+  videos largos > 60s.
+  *Lipsync real:* Seedance 2.0 sí soporta lipsync con voz canónica vía
+  `--audio` (validado 2026-06-12, ver Caso A).
 argument-hint: "<producto-slug>"
 allowed-tools: Bash, Read, Write, Edit, Skill, AskUserQuestion
 ---
@@ -81,14 +82,16 @@ modelo, el prompt-pack y los lockdowns a aplicar.**
 
 | Caso | Definición | Modelo | Justificación |
 |---|---|---|---|
-| **A — Avatar narrando (sin lipsync)** | Persona visible, VO en off (narración-sobre-gesto). Boca NO articula palabras. | `seedance_2_0` `--mode std` 720p, **silent** | Más barato. Lipsync real **descartado de proyecto** porque modelos con lipsync (Veo 3, etc.) imponen su propio TTS y se pierde la voz canónica Malena Clone v1. |
-| **B — Avatar gestual (sin habla)** | Persona visible interactuando con el producto. El VO describe lo que se ve. Sonrisa cerrada permitida. | `seedance_2_0` `--mode std` 720p, **silent** | Idem A. Prompt declara `warm closed soft smile, NOT articulating words`. |
-| **C — Producto puro / manos sin cara** | Sin persona visible (o solo manos). | `seedance_2_0` `--mode std` 720p, **silent** | Más barato. Micro-movimiento del objeto rígido + animación de cámara sutil. |
-| **D — Cierre brand / kinetic** | Logo + texto, sin movimiento de actor. | **No generar** — still + transición FFmpeg basta. Skill **pregunta** antes de gastar créditos. | Lo más barato es no generar. |
+| **A — Avatar narrando con LIPSYNC** ⭐ | Persona visible hablando a cámara, lipsync sincronizado con la voz canónica. | `seedance_2_0` `--mode std` 720p **con `--audio` apuntando al `vo-<escena>.mp3` canónico** | Validado empíricamente 2026-06-12 en safety-loop-scissors-v3 (E3-ii y E4): Seedance 2.0 ahora SÍ respeta el audio pasado vía `--audio` — usa la voz canónica como audio del output y genera lipsync REAL sobre la boca del avatar. |
+| **B — Avatar gestual (sin habla, VO en off)** | Persona visible interactuando con el producto. El VO describe lo que se ve, la boca NO articula palabras. | `seedance_2_0` `--mode std` 720p, **silent** | El audio se overlayea con FFmpeg después. Prompt declara `warm closed soft smile, NOT articulating words`. |
+| **C — Producto puro / manos sin cara** | Sin persona visible (o solo manos). | `seedance_2_0` `--mode std` 720p, **silent** | Más barato. Micro-movimiento del objeto rígido. Audio overlay FFmpeg después. |
+| **D — Cierre brand / kinetic** | Logo + texto, sin movimiento de actor. | `seedance_2_0` `--mode std` 720p **silent** o still + transición FFmpeg. Preguntar al usuario. | Lo más barato es no generar; pero generación da micro-motion catalog real. |
 
-**Regla absoluta para Seedance 2.0**: NUNCA pasar `--audio`. No hace
-pass-through real: usa el MP3 como guía rítmica de animación pero sintetiza
-su propio TTS al output. Generar **silent** y overlay con FFmpeg después.
+**Regla actualizada para Seedance 2.0** (revertida 2026-06-12):
+- **Caso A** (avatar hablando con lipsync) → **SÍ pasar `--audio`** apuntando al MP3 canónico. Seedance respeta la voz y genera lipsync. *Histórico: en piloto Mercedes-v1 (2026-05) este comportamiento falló — Seedance sintetizaba su propio TTS. Cambió en versiones posteriores. Validado empíricamente con E3-ii y E4 de safety-loop-scissors-v3 (2026-06-12).*
+- **Casos B, C, D** (sin habla / sin avatar) → **NO pasar `--audio`**. Generar silent + overlay FFmpeg. No tiene sentido gastar audio nativo si la boca no se sincroniza.
+
+> **Si Seedance vuelve a regresionar** (caso A pierde voz canónica o el lipsync deja de funcionar), volver al patrón silent + overlay del piloto Mercedes-v1.
 
 ---
 
@@ -102,8 +105,8 @@ aprueba el board completo.
 ```markdown
 ## E1
 
-- **Caso**: A — Avatar narrando (sin lipsync)
-- **Modelo**: `seedance_2_0 --mode std --resolution 720p` *(no pasar `--audio`)*
+- **Caso**: A — Avatar narrando con LIPSYNC
+- **Modelo**: `seedance_2_0 --mode std --resolution 720p --audio productos/<slug>/audio/aprobados/vo-<escena>.mp3`
 - **Duración** *(calculada con `ffprobe` sobre el VO)*: 5 s
   - VO `vo-e1.mp3` dura 4.3 s → `--duration 5` (cola ~0.7 s).
 - **`--start-image`**: `productos/<slug>/imagenes-aprobadas/e1.png`
@@ -297,8 +300,8 @@ con menos retries que este.**
 
 ## Anti-patterns
 
-1. **Pasar `--audio` a Seedance 2.0.** No es pass-through. Genera su propio TTS y rompe la voz canónica. Siempre silent + overlay FFmpeg.
-2. **Usar modelos con lipsync nativo** (Veo 3, etc.) para escenas con avatar. Imponen su TTS → pérdida de voz canónica. Caso A/B usan narración-sobre-gesto.
+1. ~~**Pasar `--audio` a Seedance 2.0.**~~ **REVERTIDO 2026-06-12**: ahora SÍ se pasa `--audio` en el Caso A (avatar hablando con lipsync). Seedance respeta la voz canónica. Validado en E3-ii y E4 de safety-loop-scissors-v3. Para Casos B/C/D sigue valiendo: NO pasar audio → silent + overlay FFmpeg.
+2. **Usar modelos con lipsync nativo distintos a Seedance** (Veo 3, Kling con `sound=on`, etc.) para escenas con avatar. Esos modelos sí imponen su TTS y pierden la voz canónica. Seedance 2.0 (validado 2026-06-12) es la excepción que respeta el audio pasado vía `--audio`.
 3. **Lanzar el lote completo antes de validar el canary.** Si la primera falla por una causa, las 7 siguientes probablemente también — y son créditos perdidos.
 4. **Retry sin causa raíz mapeada.** Si no entendés por qué falló, no lo reintentes igual. Strategic reset.
 5. **Prompt corto / sin lockdowns.** Cada generación es cara — el prompt extensivo es la inversión que paga el one-shot.

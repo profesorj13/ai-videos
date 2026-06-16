@@ -79,6 +79,35 @@ at the object they are using (NOT at camera, unless explicitly noted).
 
 Para escenas con avatar: añadir `warm closed-mouth gentle smile, NOT articulating words, NOT speaking — mouth closed and soft`. (Razón: el video no tendrá lipsync; ver hallazgos `CLAUDE.md`).
 
+## Aula AlizIA canónica (incluir en TODAS las escenas con aula)
+
+**MISMA aula en todas las escenas** — E2-i, E3-i, E3-ii, E3-iii, E4. Antes había
+una aula distinta por escena, lo cual rompió continuidad (feedback Anabela en
+E2-i). El bloque siguiente fija la aula:
+
+```
+The scene takes place in a typical Argentine primary-school classroom (same
+classroom across all scenes for continuity):
+- Walls in light cream / off-white color.
+- Large windows on the LEFT side, soft natural morning light coming through
+  (overcast day or thin curtains), no direct harsh sunlight.
+- Traditional GREEN chalkboard at the back wall (or simple white board if
+  the angle requires it).
+- Pedagogical posters on a side wall: colored cardboard sheets with alphabet,
+  numbers, geometric shapes — text NOT legible, just colorful patches.
+- Light-wood school desks with rounded edges, plastic or wood chairs.
+- Open wooden shelving with school materials (boxes, books, paper) — tidy.
+- Light tile floor (pale beige or cream).
+- Children wear classic Argentine WHITE long-sleeve smock "guardapolvo blanco"
+  (button-front lab-coat style).
+- Atmosphere: tidy, organized, warm natural light, NOT cluttered, NOT messy,
+  NOT dramatic — quiet morning activity.
+```
+
+Si el modelo se desvía del aula entre escenas, anclar con `--image` apuntando
+a una escena previa ya aprobada con esta aula (ej. usar E3-i v4 como ref dura
+del aula para regenerar las demás).
+
 ---
 
 ## E1 — El problema (manos con tijera común)
