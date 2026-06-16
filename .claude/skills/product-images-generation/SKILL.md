@@ -223,6 +223,30 @@ environment (shelves organized, desk clear) — NEVER cluttered or messy.
 - Gesto candid (mirando al objeto, NO a cámara).
 - Avatares humanos: **smile cálido y cerrado, NOT articulating words** (porque el video después no tiene lipsync; ver hallazgos en `CLAUDE.md`).
 
+### Brand-close / cierre — fondo `#2A205E` (regla dura)
+
+La **última escena** del video (rol `cierre_brand` en el storyboard) es el
+reveal del producto + brand AlizIA, que conecta con el outro compartido. Para
+que el corte video→outro no se note, el fondo del producto en esa escena
+**debe ser exactamente el mismo azul que el outro: `#2A205E`** (índigo oscuro
+saturado AlizIA).
+
+Bloque de prompt a incrustar en la escena de cierre (NO en el resto):
+
+```
+<prompt base del producto> floating centered on a solid deep indigo background
+(hex #2A205E, AlizIA brand color), studio softbox light gently kissing the
+product, premium catalog reveal aesthetic, no gradient, no texture, no shadows
+on background, 9:16 vertical.
+```
+
+QA tip: abrir la still aprobada y picar el fondo en cualquier zona limpia con
+un color picker — si no da `#2A205E ± 3 puntos` por canal, regenerar. La
+coherencia con el outro depende de esto.
+
+Esta regla **anula** la estética documental (de celular) solo para la escena
+de cierre — el resto del video sí sigue documental.
+
 ### Estructura de `storyboard.md`
 
 Un bloque por imagen. Embebé el **guión completo** al principio como sección
@@ -243,7 +267,7 @@ Un bloque por imagen. Embebé el **guión completo** al principio como sección
 
 ## E1 — <título de la escena>
 
-- **Rol**: `producto_puro` | `escena_con_avatar` | `escena_con_grip` | `cierre_brand`
+- **Rol**: `producto_puro` | `escena_con_avatar` | `escena_con_grip` | `cierre_brand` *(si rol=cierre_brand: fondo `#2A205E`, ver §"Brand-close" arriba)*
 - **Modelo**: `nano_banana_2` | `product-photoshoot/conceptual_product` | `product-photoshoot/closeup_product_with_person`
 - **Aspect / resolución**: `9:16` / `2k`
 - **Refs (--image)**:
