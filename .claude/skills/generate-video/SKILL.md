@@ -152,14 +152,49 @@ Plantilla:
 | Tag | Causa de retry que evita | Bloque a pegar |
 |---|---|---|
 | `[CAP-SLIDE]` | Partes rígidas (cap, grip) "se deslizan" durante la animación | `RIGID SOLID OBJECT — <piezas> stay FIXED, do NOT slide along <cuerpo>` |
-| `[CLOSED-MOUTH]` | Avatar abre la boca / articula palabras (descartado por proyecto) | `warm closed soft smile throughout, NOT articulating words, NOT opening mouth, NOT speaking` |
+| `[CLOSED-MOUTH]` | Avatar abre la boca cuando NO queremos lipsync. Usar cuando el avatar NO va a hablar (escenas mudas, o cuando la VO va en off). Si SÍ querés lipsync, NO aplicar este lockdown y usar `--audio <vo.mp3>` (ver §"Lipsync con Seedance" abajo). | `warm closed soft smile throughout, NOT articulating words, NOT opening mouth, NOT speaking` |
 | `[IDENTITY]` | Drift de identidad facial entre escenas | `same person as in start-image, no facial restructuring, no age drift` |
 | `[PRODUCT-MULTIPLY]` | Aparece 2+ unidades del producto | `EXACTLY ONE unit of <product> on screen, do NOT duplicate or mirror` |
 | `[LIVING-BG]` | Default para escenas con personas en el fondo (aula, oficina, etc.). El fondo debe sentirse vivo — Seedance tiende a congelarlo si no le pedimos motion explícito, y eso lee como render IA. | `background people have natural LIVING micro-motion throughout — students writing on their notebooks, one turning head slowly, one gently gesturing, one shifting in their seat. The background is alive but calm. NEVER frozen. NEVER everyone perfectly still.` |
 | `[STATIC-BG]` | Fondo "vive" DEMASIADO (gente caminando en frame, gestos dramáticos, objetos apareciendo). Aplicar SOLO cuando explícitamente queremos fondo controlado (close-up brand, plano muy cerrado donde el background es solo color/textura). | `no extra people walking into frame, no dramatic gestures, no objects appearing or disappearing in the background` |
 | `[PRODUCT-TOPOLOGY]` | Seedance rompe la topología del producto entre la still y el video (loops continuos se parten en handles separados, anillos cerrados se abren, formas conectadas se desconectan). Caso real: piloto Mercedes E4 — still tenía la tijera safety-loop con el loop verde continuo, Seedance generó dos handles separados unidos por una bisagra (tijera tradicional). Más probable cuando el producto es pequeño en frame y el avatar se mueve. | `PRESERVE PRODUCT TOPOLOGY EXACTLY — every closed loop, ring, or continuous connected shape in the start-image must remain closed and continuous. NO splitting of continuous parts into separate pieces. NO opening of closed rings or loops. The product structure stays topologically identical to the start-image throughout the entire shot.` |
+| `[SCALE-LOCK]` | Seedance agranda el producto durante el shot — sobre todo cuando el avatar lo sostiene en una toma mediana y el producto debería ocupar < 15% del frame. Lockdown numérico (no descriptivo) es lo único que funciona. | `SCALE LOCK — the product stays at the EXACT same size relative to the avatar as in the start-image. Less than 15% of the frame width. Smaller than the avatar's hand. NEVER enlarge during the shot. NEVER make it bigger than in the start-image.` |
+| `[FREEZE-ORIENTATION]` | Cuando pedimos "rotación sutil de 5-10°" Seedance termina rotando 90°+. Para escenas brand-close estáticas (producto sobre fondo sólido), bloquear toda rotación funciona mejor que pedir rotación tímida. | `FREEZE PRODUCT ORIENTATION — the product stays in the EXACT same position, angle, and orientation as the start-image for the entire shot. ZERO rotation. ZERO tilt. ZERO flip. Only subtle light shimmer changes.` |
 
 *(Nuevos lockdowns se agregan acá tras cada retry mapeado en Paso 5.)*
+
+### Lipsync con Seedance 2.0 — capability + caveat
+
+Seedance 2.0 acepta `--audio <vo.mp3>` como input y hace lipsync natural sobre la
+boca del avatar de la start-image. Capabilities y reglas:
+
+- **Cuándo usarlo**: cuando el avatar debe hablar al cámara o al objeto. NO sumar `[CLOSED-MOUTH]` en el prompt — son mutuamente excluyentes.
+- **Compatibilidad de lockdowns**: `[IDENTITY]`, `[PRODUCT-TOPOLOGY]`, `[SCALE-LOCK]`, `[LIVING-BG]`, `[RIGID-OBJECT]` siguen aplicando normal. Solo se cambia `[CLOSED-MOUTH]` → bloque "LIPSYNC" abajo.
+- **Bloque LIPSYNC a sumar al prompt**:
+  ```
+  LIPSYNC — the avatar's lips move naturally synchronized with the provided audio. Natural confident speech, occasional natural blink, small natural head tilts and micro-gestures.
+  ```
+
+**Hallazgo crítico — cola de audio espuria**: con `generate_audio: true` (default
+del CLI cuando se pasa `--audio`), Seedance puede *agregar* un vestigio de sonido
+("o", "ah", suspiro) en la cola del video, **después** de que el audio fuente ya
+terminó. La cola sobresale cuando el video corta a la escena siguiente y se oye
+ese ruido durante la transición.
+
+- **Diagnóstico**: comparar `silencedetect` del audio fuente vs del audio
+  embebido en el video output. Si el audio embebido tiene actividad después del
+  fin de la VO, hay cola espuria.
+- **Fix sin regenerar** (gratis, 1 comando):
+  ```bash
+  ffmpeg -y -i <e4-lipsync.mp4> \
+    -c:v copy \
+    -af "afade=t=out:st=<vo_speech_end>:d=0.15" \
+    -c:a aac -b:a 192k <e4-fixed.mp4>
+  ```
+  donde `<vo_speech_end>` se obtiene de `silencedetect=noise=-30dB:d=0.3` sobre
+  el `vo-eN.mp3` original (primer `silence_start` cerca del final).
+- **Anti-pattern descartado**: freeze-frame visual al final del video. Visualmente
+  corta la sonrisa natural y NO ataca el problema (que es de audio).
 
 ### GATE 1 — Aprobación del motion-board
 
