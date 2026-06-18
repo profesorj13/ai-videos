@@ -98,9 +98,9 @@ Antes de pasar al modelo, ajustes hechos sobre el texto original:
 ## vo-e4 — El resultado (Mercedes + cierre conceptual)
 
 - **Frase normalizada**:
-  > Es una herramienta pensada para alumnos y alumnas que pueden presentar dificultades en la motricidad fina, en la fuerza de agarre o en la coordinación de ambas manos.
-- **Notas**: oración larga con enumeración (3 ítems separados por comas / "o"). Si suena apurada en QA, no hay forma de meter pausas con SSML — habría que partirla en dos audios o regenerar con `style` levemente distinto. Por ahora va en una sola.
-- **Output esperado**: `audio/vo-e4-v1.mp3`.
+  > Es un accesorio pensado para alumnos y alumnas que pueden presentar dificultades en la motricidad fina, en la fuerza de agarre o en la coordinación de ambas manos.
+- **Notas**: oración larga con enumeración (3 ítems separados por comas / "o"). v1 decía "una herramienta" pero ElevenLabs lo pronunciaba elidiendo la "h" + vocales y se escuchaba como "una arma" — cambio a "un accesorio" (validado por usuario 2026-06-17).
+- **Output esperado**: `audio/vo-e4.mp3` (aprobado en v16 tras 16 iteraciones por cadencia compatible con Seedance lipsync).
 
 ---
 
