@@ -15,7 +15,8 @@ productos/_compartidos/
 ├── README.md                                 (este archivo, en git)
 ├── intro.mp4                                 (descargar de Drive)
 ├── outro.mp4                                 (descargar de Drive)
-└── bed-canonico-the-mountain.mp3             (descargar de Drive)
+├── bed-canonico-the-mountain.mp3             (descargar de Drive)
+└── educabot-logo-overlay.png                 (descargar de Drive)
 ```
 
 ## Assets
@@ -25,6 +26,7 @@ productos/_compartidos/
 | `intro.mp4` | 720×1280, 23.976 fps, 8.3s, **sin audio** | [`1N_ZpyKY8954RqLTOneEIWeA2gjA743Sp`](https://drive.google.com/file/d/1N_ZpyKY8954RqLTOneEIWeA2gjA743Sp/view) |
 | `outro.mp4` | 720×1280, 23.976 fps, 5.05s, **sin audio** | [`1dSck-x8FUVC_6bS_FH0Oovm7BVHwEGH0`](https://drive.google.com/file/d/1dSck-x8FUVC_6bS_FH0Oovm7BVHwEGH0/view) |
 | `bed-canonico-the-mountain.mp3` | 145s, 44.1 kHz stereo, instrumental cálido | [`1VQEQdTSohE8DAZfKQ4Ci2nv3KGgMLKNl`](https://drive.google.com/file/d/1VQEQdTSohE8DAZfKQ4Ci2nv3KGgMLKNl/view) |
+| `educabot-logo-overlay.png` | 720×1280, RGBA, logo "EDUCABOT TECNOLOGÍA EDUCATIVA" en top 8-14%, resto transparente, 38 KB | **vive en el repo** (chico) — no requiere bajada Drive |
 
 Drive folder: [`_compartidos/`](https://drive.google.com/drive/folders/1LnZsVuLXKqNF2DLsngRYDiuWNnECiuTO) (dentro del root del equipo `16rGUnSWWMtnlAumavbZtDoOpegKqalUv`).
 
@@ -71,8 +73,26 @@ En la **Etapa 5 — Post-final assembly** de la skill
 [`ai-inclusion-videos`](../../.claude/skills/ai-inclusion-videos/SKILL.md).
 Concretamente:
 
-1. `intro.mp4` + `<final>.mp4` + `outro.mp4` → concat con FFmpeg
-2. `bed-canonico-the-mountain.mp3` → mix con ducking automático bajo la VO
+1. `educabot-logo-overlay.png` → overlay sobre el contenido principal
+   (entre intro y outro, NUNCA sobre intro/outro porque ya traen branding propio)
+2. `intro.mp4` + `<final-con-overlay>.mp4` + `outro.mp4` → concat con FFmpeg
+3. `bed-canonico-the-mountain.mp3` → mix con ducking automático bajo la VO
+
+### FFmpeg — aplicar overlay del logo al contenido principal
+
+El PNG ya está dimensionado a 720×1280 con el logo en la zona superior y el
+resto transparente. No requiere scale ni position — se aplica full-frame:
+
+```bash
+ffmpeg -i <contenido-principal>.mp4 -i productos/_compartidos/educabot-logo-overlay.png \
+  -filter_complex "[0:v][1:v]overlay=0:0:format=auto" \
+  -c:v libx264 -crf 18 -preset slow -c:a copy \
+  <contenido-con-logo>.mp4
+```
+
+Después concatenar con intro/outro y aplicar el bed musical como siempre.
+**Importante**: el overlay solo va sobre el contenido principal — las placas
+intro/outro ya traen branding y aplicarles el logo encima genera ruido visual.
 
 Si querés cambiar el bed musical para un video puntual, pasarlo como override
 local — pero **no** reemplaces el canónico sin acuerdo del equipo: la

@@ -40,7 +40,7 @@ Voz en off: *"Así, logramos que el alumno o la alumna pueda participar de la ac
 **4. El resultado**
 
 Visual: El avatar Mercedes sostiene la tijera adaptada mientras habla a cámara dentro del aula. De fondo, desenfocado, se ven alumnos con guardapolvo blanco trabajando en distintas actividades.
-Avatar / voz en off: *"Es una herramienta pensada para alumnos y alumnas que pueden presentar dificultades en la motricidad fina, en la fuerza de agarre o en la coordinación de ambas manos."*
+Avatar / voz en off: *"Es un accesorio pensado para alumnos y alumnas que pueden presentar dificultades en la motricidad fina, en la fuerza de agarre o en la coordinación de ambas manos."*
 
 **5. Cierre de producto**
 
