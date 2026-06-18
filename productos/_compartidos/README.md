@@ -86,3 +86,42 @@ Si rehacemos intro/outro o cambiamos el bed canónico:
    versionar con `-v2` salvo que querramos conservar el viejo).
 2. Si el ID cambia, actualizar este README.
 3. Avisar al equipo para que re-bajen localmente.
+
+---
+
+## Hallazgos — assembly post-final
+
+### Normalizar TODOS los clips a stereo antes del `concat`
+
+**Regla operativa**: antes de concatenar los clips por escena (`videos/preview/<escena>.mp4`), normalizarlos a las **mismas specs de audio** — stereo 2ch, 44.1 kHz, 192 kbps AAC.
+
+**Por qué**: en `safety-loop-scissors-v3` (2026-06-18), el final compilado tenía un golpeteo rítmico tipo morse a partir del segundo 41. Diagnóstico tras varias horas: los 9 clips del concat venían con channels mixtos (7 en mono, 2 en stereo — `e3ii` y el cierre brand E5). Al re-encodar AAC en las transiciones mono↔stereo, ffmpeg metía artefactos rítmicos en el clip siguiente al cambio de channel layout. El "morse" empezaba EXACTAMENTE en la transición `e3ii (stereo) → e3iii (mono)`.
+
+Seedance 2.0 devuelve clips con `channels` que dependen del audio que se le pase: si el clip va `silent` (sin `--audio`) o con un VO mono, el output sale mono; si lleva música o un audio stereo, sale stereo. **No asumir uniformidad.**
+
+**Cómo aplicar**:
+
+1. Después de Paso 4 (overlay audio FFmpeg per-escena), verificar specs:
+   ```bash
+   for f in productos/<slug>/videos/preview/*.mp4; do
+     ffprobe -v error -select_streams a -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 "$f"
+   done
+   ```
+2. Si hay mismatch, hacer un loop de normalización a `preview-norm/` antes del concat:
+   ```bash
+   mkdir -p productos/<slug>/videos/preview-norm
+   for SRC in productos/<slug>/videos/preview/*.mp4; do
+     ffmpeg -y -i "$SRC" -c:v copy -c:a aac -ac 2 -ar 44100 -b:a 192k \
+       productos/<slug>/videos/preview-norm/$(basename "$SRC")
+   done
+   ```
+3. Concatenar desde `preview-norm/` con `-c:a copy` (sin re-encode adicional, los clips ya están alineados):
+   ```bash
+   ffmpeg -y -f concat -safe 0 -i concat-list.txt \
+     -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p \
+     -c:a copy \
+     productos/<slug>/final/contenido-principal.mp4
+   ```
+4. El concat con `intro` + `outro` y el mix del bed musical también deben forzar `-c:a aac -ac 2 -ar 44100 -b:a 192k` explícitamente.
+
+**Pista para diagnosticar**: si reportan "morse" / "código morse" / "golpeteo rítmico" en un final ya compilado, lo primero es revisar `ffprobe -select_streams a` sobre los clips fuente — antes de tocar bed musical, sidechain, o cualquier otra cosa. Caminos que NO son la causa (ya descartados en safety-loop-scissors v3): bed musical, sidechain compress agresivo, concat con intro/outro, re-generación del clip individual. El standalone del clip suena limpio porque el morse aparece sólo al concatenar.
