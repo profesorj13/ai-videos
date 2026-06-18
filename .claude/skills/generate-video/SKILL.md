@@ -83,15 +83,21 @@ modelo, el prompt-pack y los lockdowns a aplicar.**
 | Caso | Definición | Modelo | Justificación |
 |---|---|---|---|
 | **A — Avatar narrando con LIPSYNC** ⭐ | Persona visible hablando a cámara, lipsync sincronizado con la voz canónica. | `seedance_2_0` `--mode std` 720p **con `--audio` apuntando al `vo-<escena>.mp3` canónico** | Validado empíricamente 2026-06-12 en safety-loop-scissors-v3 (E3-ii y E4): Seedance 2.0 ahora SÍ respeta el audio pasado vía `--audio` — usa la voz canónica como audio del output y genera lipsync REAL sobre la boca del avatar. |
-| **B — Avatar gestual (sin habla, VO en off)** | Persona visible interactuando con el producto. El VO describe lo que se ve, la boca NO articula palabras. | `seedance_2_0` `--mode std` 720p, **silent** | El audio se overlayea con FFmpeg después. Prompt declara `warm closed soft smile, NOT articulating words`. |
-| **C — Producto puro / manos sin cara** | Sin persona visible (o solo manos). | `seedance_2_0` `--mode std` 720p, **silent** | Más barato. Micro-movimiento del objeto rígido. Audio overlay FFmpeg después. |
-| **D — Cierre brand / kinetic** | Logo + texto, sin movimiento de actor. | `seedance_2_0` `--mode std` 720p **silent** o still + transición FFmpeg. Preguntar al usuario. | Lo más barato es no generar; pero generación da micro-motion catalog real. |
+| **B — Avatar gestual (sin habla, VO en off)** | Persona visible interactuando con el producto. El VO describe lo que se ve, la boca NO articula palabras. | `seedance_2_0` `--mode fast` 720p, **silent** | El audio se overlayea con FFmpeg después. Prompt declara `warm closed soft smile, NOT articulating words`. |
+| **C — Producto puro / manos sin cara** | Sin persona visible (o solo manos). | `seedance_2_0` `--mode fast` 720p, **silent** | Más barato. Micro-movimiento del objeto rígido. Audio overlay FFmpeg después. |
+| **D — Cierre brand / kinetic** | Logo + texto, sin movimiento de actor. | `seedance_2_0` `--mode fast` 720p **silent** o still + transición FFmpeg. Preguntar al usuario. | Lo más barato es no generar; pero generación da micro-motion catalog real. |
 
 **Regla actualizada para Seedance 2.0** (revertida 2026-06-12):
 - **Caso A** (avatar hablando con lipsync) → **SÍ pasar `--audio`** apuntando al MP3 canónico. Seedance respeta la voz y genera lipsync. *Histórico: en piloto Mercedes-v1 (2026-05) este comportamiento falló — Seedance sintetizaba su propio TTS. Cambió en versiones posteriores. Validado empíricamente con E3-ii y E4 de safety-loop-scissors-v3 (2026-06-12).*
 - **Casos B, C, D** (sin habla / sin avatar) → **NO pasar `--audio`**. Generar silent + overlay FFmpeg. No tiene sentido gastar audio nativo si la boca no se sincroniza.
 
 > **Si Seedance vuelve a regresionar** (caso A pierde voz canónica o el lipsync deja de funcionar), volver al patrón silent + overlay del piloto Mercedes-v1.
+
+**Decision tree `--mode std` vs `--mode fast`** (desde 2026-06-18):
+
+- **`--mode std`** (45 cr, 720p 10 s): **solo Caso A** — avatar Mercedes a cámara con lipsync. La calidad del modo std vale el costo extra cuando hay que sincronizar boca con audio real.
+- **`--mode fast`** (35 cr, 720p 10 s — 22% más barato): **default para Casos B, C, D** — Mercedes gestual sin hablar, producto puro / manos, cierre brand. El modo fast rinde igual de bien para movimiento sutil de objetos rígidos, manos, fondos blurred, levitación catalog.
+- Override puntual `--mode std` en B/C/D: solo si el resultado fast sale notoriamente peor (artefactos visibles, motion roto). Anotar la escena en hallazgos del motion-board cuando pase — no asumir std por costumbre.
 
 ---
 
@@ -179,6 +185,7 @@ Tirar **una sola escena** primero (la primera del guión, o la que el usuario
 indique). Validar one-shot. **No** lanzar el resto hasta validar.
 
 ```bash
+# --mode std si la escena es Caso A (Mercedes con lipsync); --mode fast para B/C/D.
 higgsfield generate create seedance_2_0 \
   --prompt "<prompt EN del motion-board E1>" \
   --start-image "productos/$SLUG/imagenes-aprobadas/e1.png" \
@@ -208,12 +215,15 @@ Tracking inmediato a `generations` con `tipo=video`.
 Lanzar en paralelo, background. No spammear status — esperar y revisar logs:
 
 ```bash
+# `--mode` se lee del plan de cada escena: `std` solo para Caso A (lipsync),
+# `fast` para B/C/D. El motion-board declara el caso → el plan lo persiste.
 for e in e2-i e2-ii e3-i e3-ii e4 e5; do
+  MODE=$(jq -r ".mode" "productos/$SLUG/videos/logs/$e.plan.json")  # std | fast
   higgsfield generate create seedance_2_0 \
     --prompt "<prompt del motion-board $e>" \
     --start-image "productos/$SLUG/imagenes-aprobadas/$e.png" \
     --duration $(jq -r ".duration" "productos/$SLUG/videos/logs/$e.plan.json") \
-    --aspect_ratio 9:16 --resolution 720p --mode std \
+    --aspect_ratio 9:16 --resolution 720p --mode "$MODE" \
     --wait --wait-timeout 15m --json \
     > "productos/$SLUG/videos/logs/$e-v1.json" 2>&1 &
 done
