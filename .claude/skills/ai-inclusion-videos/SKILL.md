@@ -385,6 +385,49 @@ gws sheets spreadsheets values append \
   --json '{"values":[["99","2","final","render","ffmpeg/concat","8 clips + 7 vos + overlays, duración 40s","completed","local","","data/assets/products/safety-loop-scissors/generations/mercedes-v1/final/<slug>.mp4","2026-05-18"]]}'
 ```
 
+### Normalizar channels antes del concat (regla anti-morse)
+
+> Lección de `safety-loop-scissors-v3` (2026-06-18). Tras varias horas de
+> debug por un golpeteo rítmico tipo morse a partir del segundo 41 del final
+> compilado.
+
+**Antes** del concat, verificar specs de audio de cada clip por escena:
+
+```bash
+for f in productos/<slug>/videos/preview/*.mp4; do
+  ffprobe -v error -select_streams a -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 "$f"
+done
+```
+
+Si hay **mismatch de channels** (mono vs stereo) entre clips — Seedance 2.0
+devuelve `channels` que dependen del audio que le pases (clip silent o VO mono
+→ mono; clip con audio stereo → stereo), **no asumir uniformidad** — normalizar
+a stereo 44.1k 192k AAC en un directorio `preview-norm/` previo al concat:
+
+```bash
+mkdir -p productos/<slug>/videos/preview-norm
+for SRC in productos/<slug>/videos/preview/*.mp4; do
+  ffmpeg -y -i "$SRC" -c:v copy -c:a aac -ac 2 -ar 44100 -b:a 192k \
+    productos/<slug>/videos/preview-norm/$(basename "$SRC")
+done
+```
+
+Después concatenar desde `preview-norm/` con `-c:a copy` (sin re-encode
+adicional — los clips ya están alineados). El concat con `intro` + `outro` y
+el mix del bed musical también deben forzar `-c:a aac -ac 2 -ar 44100 -b:a
+192k` explícitamente.
+
+**Causa raíz**: cuando ffmpeg re-encoda AAC en una transición mono↔stereo,
+mete artefactos rítmicos en el clip siguiente al cambio de channel layout. El
+"morse" arranca EXACTAMENTE en esa transición. El clip standalone suena
+limpio — el morse aparece sólo al concatenar clips con channel layouts mixtos.
+
+**Si reportan morse en un final ya compilado** (síntoma típico: "código
+morse" / "golpeteo rítmico" / "tipo punteo"), antes de tocar nada más, correr
+el `ffprobe` de arriba sobre los clips fuente. Caminos descartados (verificados
+en `safety-loop-scissors-v3`, no perder tiempo ahí): bed musical, sidechain
+compress agresivo, concat con intro/outro, regeneración del clip individual.
+
 ### GATE 4
 
 > "Acá el concat per-escena sin intro/outro ni música. Reproducilo y decime:
@@ -401,14 +444,15 @@ mecánica (no hay creatividad), aplica para cada producto sin tocar parámetros.
 
 ### Assets canónicos compartidos
 
-Viven en `productos/_compartidos/` (binarios gitignored — bajada local una vez
-por máquina, instrucciones en [`productos/_compartidos/README.md`](../../../productos/_compartidos/README.md)).
+Viven en `productos/_compartidos/` (todos binarios — bajada local una vez
+por máquina desde Drive, instrucciones en [`productos/_compartidos/README.md`](../../../productos/_compartidos/README.md)).
 
-| Archivo | Duración | Specs |
+| Archivo | Duración / specs | Drive ID |
 |---|---|---|
-| `intro.mp4` | 8.3s | 720×1280 · 23.976 fps · sin audio |
-| `outro.mp4` | 5.05s | 720×1280 · 23.976 fps · sin audio |
-| `bed-canonico-the-mountain.mp3` | 145s | 44.1 kHz · stereo · instrumental cálido |
+| `intro.mp4` | 7.8s · 720×1280 · 23.976 fps · sin audio | [`1rU80YQAjoFog47jFZWYkxSfWxBFtzBav`](https://drive.google.com/file/d/1rU80YQAjoFog47jFZWYkxSfWxBFtzBav/view) |
+| `outro.mp4` | 5.05s · 720×1280 · 23.976 fps · sin audio | [`1dSck-x8FUVC_6bS_FH0Oovm7BVHwEGH0`](https://drive.google.com/file/d/1dSck-x8FUVC_6bS_FH0Oovm7BVHwEGH0/view) |
+| `bed-canonico-the-mountain.mp3` | 145s · 44.1 kHz · stereo · instrumental cálido | [`1VQEQdTSohE8DAZfKQ4Ci2nv3KGgMLKNl`](https://drive.google.com/file/d/1VQEQdTSohE8DAZfKQ4Ci2nv3KGgMLKNl/view) |
+| `educabot-logo-overlay.png` | 720×1280 · RGBA · logo "EDUCABOT — TECNOLOGÍA EDUCATIVA" en top 8-14%, resto transparente · 38 KB | [`1_Dp0W-_cNNaaGDYji3A7-UGBkkhwZrVU`](https://drive.google.com/file/d/1_Dp0W-_cNNaaGDYji3A7-UGBkkhwZrVU/view) |
 
 Antes de arrancar, **pre-check**:
 
@@ -442,6 +486,56 @@ ffmpeg -y \
   -c:a aac -b:a 128k -movflags +faststart \
   "$OUT"
 ```
+
+### Paso 5.1b — Overlay logo Educabot sobre el contenido principal
+
+El logo Educabot (`educabot-logo-overlay.png`) se aplica **solo al contenido
+principal** — entre intro y outro, NUNCA encima de intro/outro (las placas
+ya traen su branding propio y aplicarles el logo encima genera ruido visual).
+
+Opciones:
+
+- **A (recomendado para videos nuevos)**: aplicar el overlay al `$FINAL` del
+  concat per-escena (antes del paso 5.1). Resultado: el logo queda en cuadro
+  durante todo el contenido principal del 5.1.
+- **B**: aplicar al output del 5.1 con `enable='between(t,T_VO_START,T_VO_END)'`
+  para que el overlay solo aparezca durante el contenido principal (no en los
+  segmentos del intro/outro). Útil si el `$FINAL` ya fue aprobado y no querés
+  re-renderearlo.
+
+El PNG ya está dimensionado a 720×1280 con el logo en la zona superior y el
+resto transparente — no requiere scale ni position, se aplica full-frame con
+`overlay=0:0:format=auto`:
+
+```bash
+# Opción A: overlay sobre el $FINAL antes del concat con intro/outro
+FINAL_WITH_LOGO="productos/$SLUG/final/$SLUG-$VN-final-with-logo.mp4"
+ffmpeg -y \
+  -i "$FINAL" \
+  -i productos/_compartidos/educabot-logo-overlay.png \
+  -filter_complex "[0:v][1:v]overlay=0:0:format=auto" \
+  -c:v libx264 -crf 18 -preset slow -c:a copy \
+  "$FINAL_WITH_LOGO"
+# después usar $FINAL_WITH_LOGO como input en el paso 5.1
+```
+
+```bash
+# Opción B: overlay condicional en el output del 5.1, encendido solo durante
+# el contenido principal (después del intro, antes del outro).
+T_LOGO_END=$(python3 -c "print(8.3 + $FINAL_DUR)")     # cambia a 7.8 si intro nuevo
+OUT_WITH_LOGO="${OUT%.mp4}-with-logo.mp4"
+ffmpeg -y \
+  -i "$OUT" \
+  -i productos/_compartidos/educabot-logo-overlay.png \
+  -filter_complex "[0:v][1:v]overlay=0:0:format=auto:enable='between(t,8.3,$T_LOGO_END)'" \
+  -c:v libx264 -crf 18 -preset slow -c:a copy \
+  "$OUT_WITH_LOGO"
+```
+
+> **No** aplicar el overlay sobre intro/outro completos: las placas tienen
+> branding propio y el logo encima genera ruido visual. Si usás Opción B
+> verificá los timestamps — un off-by-one que tape la placa de cierre rompe
+> el cierre brand.
 
 ### Paso 5.2 — Mix con bed musical (ducking automático)
 
